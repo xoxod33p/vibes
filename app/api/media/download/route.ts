@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
       "--no-playlist",
       "--no-warnings",
       "--print-json",
+      // Use iOS player client to bypass YouTube n-challenge JS requirement
+      "--extractor-args", "youtube:player_client=ios",
     ];
 
     const cookiesFile = getCookiesPath();

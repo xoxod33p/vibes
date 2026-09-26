@@ -122,12 +122,8 @@ export async function POST(req: NextRequest) {
     }
 
     const downloadedPath = path.join(UPLOAD_FOLDER, downloadedName);
-    const finalFilename = `${tempStem}.mp3`;
-    const finalPath = path.join(UPLOAD_FOLDER, finalFilename);
-
-    if (downloadedPath !== finalPath) {
-      fs.renameSync(downloadedPath, finalPath);
-    }
+    // Keep the actual file extension (m4a, opus, webm) - don't force .mp3
+    const finalFilename = downloadedName;
 
     const title = overrideTitle || (info.title as string) || "Audio Track";
     const artist =

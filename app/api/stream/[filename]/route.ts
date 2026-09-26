@@ -14,6 +14,21 @@ export async function GET(
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
 
+  // Detect content type from actual extension
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const contentTypeMap: Record<string, string> = {
+    mp3: "audio/mpeg",
+    m4a: "audio/mp4",
+    mp4: "audio/mp4",
+    ogg: "audio/ogg",
+    opus: "audio/ogg; codecs=opus",
+    webm: "audio/webm",
+    flac: "audio/flac",
+    wav: "audio/wav",
+    aac: "audio/aac",
+  };
+  const contentType = contentTypeMap[ext] ?? "audio/mpeg";
+
   const filePath = path.join(/*turbopackIgnore: true*/ UPLOAD_FOLDER, filename);
   if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
@@ -46,7 +61,7 @@ export async function GET(
         "Content-Range": `bytes ${start}-${validEnd}/${fileSize}`,
         "Accept-Ranges": "bytes",
         "Content-Length": chunkSize.toString(),
-        "Content-Type": "audio/mpeg",
+        "Content-Type": contentType,
         "Cache-Control": "public, max-age=604800, immutable",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, OPTIONS",
@@ -61,7 +76,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Length": fileSize.toString(),
-        "Content-Type": "audio/mpeg",
+        "Content-Type": contentType,
         "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=604800, immutable",
         "Access-Control-Allow-Origin": "*",

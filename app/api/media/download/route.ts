@@ -25,8 +25,6 @@ async function runBackgroundDownload(opts: {
 }) {
   const { songId, tempStem, target, title, artist, album, duration, coverUrl, isPlaylist, playlistId, userId } = opts;
   const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
-  const finalFilename = `${tempStem}.mp3`;
-  const finalPath = path.join(UPLOAD_FOLDER, finalFilename);
 
   const args = [
     "-f", "bestaudio[ext=m4a]/bestaudio/best",
@@ -96,10 +94,11 @@ async function runBackgroundDownload(opts: {
     return;
   }
 
+  // Use the real downloaded filename (keep actual extension - m4a, opus, webm, etc.)
   const downloadedPath = path.join(UPLOAD_FOLDER, downloadedName);
-  if (downloadedPath !== finalPath) {
-    fs.renameSync(downloadedPath, finalPath);
-  }
+  const finalFilename = downloadedName; // keep as-is, don't force .mp3
+  const finalPath = downloadedPath;
+  void finalPath; // no rename needed
 
   // Resolve final metadata (yt-dlp info overrides if user didn't provide)
   const finalTitle = title !== "Downloading..." ? title : ((info.title as string) || "Audio Track");

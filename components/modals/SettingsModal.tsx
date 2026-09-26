@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Settings, HardDrive, Trash2, Keyboard, Sparkles, Loader2, Palette, Check } from "lucide-react";
+import { Settings, HardDrive, Trash2, Keyboard, Loader2, Palette, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CacheInfo } from "@/lib/types";
@@ -239,13 +239,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             </div>
           </div>
 
-          {/* Engine Info */}
-          <div className="p-3 rounded-2xl bg-white/5 border border-white/5 text-xs text-neutral-400 flex items-center gap-3">
-            <Sparkles className="w-5 h-5 text-[var(--accent-primary)] shrink-0" />
-            <span>
-              Built with Next.js, SQLite, and shadcn/ui.
-            </span>
-          </div>
+
         </div>
       </DialogContent>
     </Dialog>

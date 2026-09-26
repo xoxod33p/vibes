@@ -61,6 +61,8 @@ export async function POST(req: NextRequest) {
       "--print-json",
       // Use iOS player client to bypass YouTube n-challenge JS requirement
       "--extractor-args", "youtube:player_client=ios",
+      // Point yt-dlp to the Node.js binary running this process (handles nvm paths)
+      "--js-runtimes", `node:${process.execPath}`,
     ];
 
     const cookiesFile = getCookiesPath();

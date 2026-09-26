@@ -214,7 +214,7 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            target: track.url || track.searchQuery,
+            target: track.url || track.searchQuery || `ytsearch1:${track.artist} - ${track.title} audio`,
             title: track.title,
             artist: track.artist,
             album: track.album || (inspected.type === "album" ? inspected.title : undefined),
@@ -239,6 +239,7 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
             };
           });
         } else {
+          toast.error(data.error || `Download failed: ${track.title}`);
           setInspected((prev) => {
             if (!prev) return null;
             return {

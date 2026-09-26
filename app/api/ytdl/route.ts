@@ -63,17 +63,37 @@ export async function POST(req: NextRequest) {
 
     const cookiesFile = path.join(BASE_DIR, "cookies.txt");
     if (fs.existsSync(cookiesFile)) {
-      args.push("--cookies", cookiesFile);
+      try {
+        const stat = fs.statSync(cookiesFile);
+        if (stat.size > 10) {
+          args.push("--cookies", cookiesFile);
+        }
+      } catch {}
     }
 
     args.push(target);
 
+    const extendedPath = [
+      process.env.PATH || "",
+      "/usr/local/bin",
+      "/usr/bin",
+      "/bin",
+      path.join(process.env.HOME || "/home/admin", ".local/bin"),
+    ].join(process.platform === "win32" ? ";" : ":");
+
     let stdout = "";
     try {
-      const res = await execFileAsync("yt-dlp", args, { timeout: 120000 });
+      const res = await execFileAsync("yt-dlp", args, {
+        timeout: 120000,
+        env: {
+          ...process.env,
+          PATH: extendedPath,
+        },
+      });
       stdout = res.stdout;
     } catch (execErr: unknown) {
-      const errorMsg = execErr instanceof Error ? execErr.message : String(execErr);
+      const execObj = execErr as { message?: string; stderr?: string };
+      const errorMsg = execObj.stderr?.trim() || execObj.message || String(execErr);
       console.error("yt-dlp execution error:", errorMsg);
       return NextResponse.json(
         { error: `Download failed: ${errorMsg.slice(0, 300)}` },

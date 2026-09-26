@@ -76,5 +76,33 @@ if (globalThis.__vibes_db) {
   `);
 }
 
+export function getCookiesPath(): string | null {
+  const candidates = [
+    path.join(BASE_DIR, "cookies.txt"),
+    "/home/admin/vibes/cookies.txt",
+    path.join(process.cwd(), "cookies.txt"),
+    path.join(process.env.HOME || "", "vibes", "cookies.txt"),
+    path.join(BASE_DIR, "Cookies.txt"),
+    path.join(BASE_DIR, "cookies.txt.txt"),
+    path.join(BASE_DIR, "cookies"),
+    "/home/admin/vibes/Cookies.txt",
+    "/home/admin/vibes/cookies.txt.txt",
+    "/home/admin/vibes/cookies",
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    try {
+      if (fs.existsSync(candidate)) {
+        const stat = fs.statSync(candidate);
+        if (stat.isFile() && stat.size > 0) {
+          return candidate;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 export const db = dbInstance;
 export { UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR, BASE_DIR };

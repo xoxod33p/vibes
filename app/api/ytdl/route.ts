@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR } from "@/lib/db";
+import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 const execFileAsync = promisify(execFile);
@@ -61,14 +61,12 @@ export async function POST(req: NextRequest) {
       "--print-json",
     ];
 
-    const cookiesFile = path.join(BASE_DIR, "cookies.txt");
-    if (fs.existsSync(cookiesFile)) {
-      try {
-        const stat = fs.statSync(cookiesFile);
-        if (stat.size > 10) {
-          args.push("--cookies", cookiesFile);
-        }
-      } catch {}
+    const cookiesFile = getCookiesPath();
+    if (cookiesFile) {
+      console.log(`[ytdl] Using cookies file: ${cookiesFile}`);
+      args.push("--cookies", cookiesFile);
+    } else {
+      console.log("[ytdl] No cookies file found");
     }
 
     args.push(target);

@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { BASE_DIR } from "@/lib/db";
+import { BASE_DIR, getCookiesPath } from "@/lib/db";
 
 const execFileAsync = promisify(execFile);
 
@@ -169,16 +169,33 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
     "--skip-download",
   ];
 
-  const cookiesFile = path.join(BASE_DIR, "cookies.txt");
-  if (fs.existsSync(cookiesFile)) {
+  const cookiesFile = getCookiesPath();
+  if (cookiesFile) {
+    console.log(`[resolveYouTube] Using cookies: ${cookiesFile}`);
     args.push("--cookies", cookiesFile);
+  } else {
+    console.log("[resolveYouTube] No cookies file found");
   }
 
   args.push(url);
 
+  const extendedPath = [
+    process.env.PATH || "",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    path.join(process.env.HOME || "/home/admin", ".local/bin"),
+  ].join(process.platform === "win32" ? ";" : ":");
+
   let stdout = "";
   try {
-    const res = await execFileAsync("yt-dlp", args, { timeout: 60000 });
+    const res = await execFileAsync("yt-dlp", args, {
+      timeout: 60000,
+      env: {
+        ...process.env,
+        PATH: extendedPath,
+      },
+    });
     stdout = res.stdout;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

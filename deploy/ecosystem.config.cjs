@@ -1,7 +1,8 @@
 module.exports = {
   apps: [
     {
-      name: "music-player",
+      name: "vibes",
+      cwd: "/home/admin/vibes",
       script: "node_modules/next/dist/bin/next",
       args: "start -p 5000",
       instances: 1,

@@ -28,12 +28,8 @@ yt-dlp --version
 ## 2. Deploy Application Files
 
 ```bash
-# Prepare project directory
-sudo mkdir -p /var/www/music-player
-sudo chown -R $USER:$USER /var/www/music-player
-
-# Copy project files into /var/www/music-player/
-cd /var/www/music-player
+# Clone or copy repository to /home/admin/vibes
+cd /home/admin/vibes
 
 # Install dependencies and build production bundle
 npm install --production=false
@@ -59,9 +55,9 @@ pm2 startup
 Useful PM2 management commands:
 ```bash
 pm2 status                  # Check app status
-pm2 logs music-player       # View live server logs
-pm2 reload music-player     # Zero-downtime reload after code updates
-pm2 restart music-player    # Restart the application
+pm2 logs vibes              # View live server logs
+pm2 reload vibes            # Zero-downtime reload after code updates
+pm2 restart vibes           # Restart the application
 ```
 
 ---

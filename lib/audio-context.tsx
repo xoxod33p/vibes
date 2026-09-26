@@ -156,17 +156,23 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   // Fetch initial songs, playlists, user, favorites
   const refreshSongs = useCallback(async (query: string = "") => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
       setIsLoadingSongs(true);
       const url = query ? `/api/songs?q=${encodeURIComponent(query)}` : "/api/songs";
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: controller.signal });
       if (res.ok) {
         const data = await res.json();
-        setAllSongs(data);
+        setAllSongs(Array.isArray(data) ? data : []);
+      } else {
+        setAllSongs([]);
       }
     } catch (e) {
       console.error("Failed to load songs:", e);
+      setAllSongs([]);
     } finally {
+      clearTimeout(timeout);
       setIsLoadingSongs(false);
     }
   }, []);

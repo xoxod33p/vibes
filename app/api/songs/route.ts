@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "node:fs";
-import path from "node:path";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER } from "@/lib/db";
+import { db } from "@/lib/db";
 import { Song } from "@/lib/types";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -31,6 +29,9 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE() {
   try {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const { UPLOAD_FOLDER, COVERS_FOLDER } = await import("@/lib/db");
     const session = await getCurrentUser();
     if (!session?.userId) {
       return NextResponse.json(

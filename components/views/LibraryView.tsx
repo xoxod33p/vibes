@@ -77,43 +77,39 @@ export function LibraryView({
         </div>
       </div>
 
-      {/* Action Bar (Play All / Shuffle / YouTube) */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handlePlayAll}
-            disabled={filteredSongs.length === 0}
-            className="gap-2 h-9 px-4"
-          >
-            <Play className="w-4 h-4 fill-current ml-0.5" />
-            <span>Play All</span>
-          </Button>
+      {/* Action Bar (Play All / Shuffle / Import) */}
+      <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-0.5">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handlePlayAll}
+          disabled={filteredSongs.length === 0}
+          className="gap-2 h-9 px-4 shrink-0 shadow-sm"
+        >
+          <Play className="w-4 h-4 fill-current ml-0.5" />
+          <span>Play All</span>
+        </Button>
 
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleShuffleAll}
-            disabled={filteredSongs.length === 0}
-            className="gap-2 h-9 px-4"
-          >
-            <Shuffle className="w-4 h-4" />
-            <span>Shuffle</span>
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleShuffleAll}
+          disabled={filteredSongs.length === 0}
+          className="gap-2 h-9 px-4 shrink-0"
+        >
+          <Shuffle className="w-4 h-4" />
+          <span>Shuffle</span>
+        </Button>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onOpenYtdl}
-            className="gap-2 h-9 text-xs"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Import / Download</span>
-          </Button>
-        </div>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onOpenYtdl}
+          className="gap-2 h-9 text-xs px-3.5 shrink-0 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-medium"
+        >
+          <Download className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+          <span>Import / Download</span>
+        </Button>
       </div>
 
       {/* Table Headers */}

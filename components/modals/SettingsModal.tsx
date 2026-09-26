@@ -23,9 +23,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const mySongsCount = user ? allSongs.filter((s) => s.user_id === user.id).length : 0;
 
   const themes: { id: ThemeId; name: string; color: string }[] = [
+    { id: "theme-emerald", name: "Emerald Groove (Default)", color: "#10b981" },
     { id: "theme-violet", name: "Midnight Violet", color: "#a855f7" },
     { id: "theme-cyan", name: "Electric Cyan", color: "#06b6d4" },
-    { id: "theme-emerald", name: "Emerald Groove", color: "#10b981" },
     { id: "theme-amber", name: "Cyberpunk Amber", color: "#f59e0b" },
   ];
 

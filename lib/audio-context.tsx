@@ -65,7 +65,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [isShuffle, setIsShuffle] = useState<boolean>(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [audioQuality, setAudioQualityState] = useState<string>("original");
-  const [theme, setThemeState] = useState<ThemeId>("theme-violet");
+  const [theme, setThemeState] = useState<ThemeId>("theme-emerald");
   const [user, setUser] = useState<User | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [allSongs, setAllSongs] = useState<Song[]>([]);
@@ -109,7 +109,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setThemeState(savedTheme);
       document.documentElement.className = savedTheme;
     } else {
-      document.documentElement.className = "theme-violet";
+      document.documentElement.className = "theme-emerald";
     }
 
     const savedVol = localStorage.getItem("vibes_volume");

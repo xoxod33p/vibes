@@ -10,9 +10,12 @@ This folder contains the production Nginx and PM2 ecosystem configurations for d
 # Update packages
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js 20+ or 22+ (or 24)
+# Install Node.js 20+ or 22+ (or 24), Python, Nginx, Certbot
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs nginx certbot python3-certbot-nginx yt-dlp
+sudo apt install -y nodejs nginx certbot python3-certbot-nginx python3-pip git ffmpeg
+
+# Install latest yt-dlp directly from GitHub repository
+sudo pip install --upgrade git+https://github.com/yt-dlp/yt-dlp.git --break-system-packages
 
 # Install PM2 globally
 sudo npm install -g pm2

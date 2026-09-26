@@ -55,19 +55,26 @@ export default function HomePage() {
   };
 
   const handleDeleteSong = async (song: Song) => {
-    if (!confirm(`Are you sure you want to delete "${song.title}"?`)) return;
-
-    try {
-      const res = await fetch(`/api/songs/${song.id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success(`Deleted "${song.title}"`);
-        await refreshSongs();
-      } else {
-        toast.error("Failed to delete track");
-      }
-    } catch {
-      toast.error("Network error");
-    }
+    toast(`Delete "${song.title}"?`, {
+      description: "This will permanently remove the audio file.",
+      action: {
+        label: "Delete",
+        onClick: async () => {
+          try {
+            const res = await fetch(`/api/songs/${song.id}`, { method: "DELETE" });
+            if (res.ok) {
+              toast.success(`Deleted "${song.title}"`);
+              await refreshSongs();
+            } else {
+              toast.error("Failed to delete track");
+            }
+          } catch {
+            toast.error("Network error");
+          }
+        },
+      },
+      cancel: { label: "Cancel", onClick: () => {} },
+    });
   };
 
   return (

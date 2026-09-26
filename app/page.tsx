@@ -1,69 +1,167 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import React, { useState } from "react";
+import { useAudio } from "@/lib/audio-context";
+import { Song } from "@/lib/types";
+
+// Layout components
+import { Sidebar } from "@/components/layout/Sidebar";
+import { MobileHeader } from "@/components/layout/MobileHeader";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+
+// Player components
+import { DesktopNowPlaying } from "@/components/player/DesktopNowPlaying";
+import { MobileMiniPlayer } from "@/components/player/MobileMiniPlayer";
+import { FullscreenPlayerSheet } from "@/components/player/FullscreenPlayerSheet";
+
+// View components
+import { LibraryView } from "@/components/views/LibraryView";
+import { PlaylistsView } from "@/components/views/PlaylistsView";
+import { FavoritesView } from "@/components/views/FavoritesView";
+import { AccountView } from "@/components/views/AccountView";
+
+// Modal components
+import { YtdlModal } from "@/components/modals/YtdlModal";
+import { AuthModal } from "@/components/modals/AuthModal";
+import { CreatePlaylistModal } from "@/components/modals/CreatePlaylistModal";
+import { AddToPlaylistModal } from "@/components/modals/AddToPlaylistModal";
+import { EditSongModal } from "@/components/modals/EditSongModal";
+import { QueueDrawer } from "@/components/modals/QueueDrawer";
+import { SettingsModal } from "@/components/modals/SettingsModal";
+
+import { toast } from "sonner";
+
+export default function HomePage() {
+  const { user, refreshSongs } = useAudio();
+
+  const [currentTab, setCurrentTab] = useState<string>("library");
+
+  // Modals state
+  const [ytdlOpen, setYtdlOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
+  const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
+  const [editSong, setEditSong] = useState<Song | null>(null);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const handleOpenYtdl = () => {
+    if (!user) {
+      toast.info("Please sign in or register to add new music");
+      setAuthOpen(true);
+    } else {
+      setYtdlOpen(true);
+    }
+  };
+
+  const handleDeleteSong = async (song: Song) => {
+    if (!confirm(`Are you sure you want to delete "${song.title}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/songs/${song.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success(`Deleted "${song.title}"`);
+        await refreshSongs();
+      } else {
+        toast.error("Failed to delete track");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex h-screen w-screen overflow-hidden bg-[var(--bg-base)]">
+      {/* Desktop Sidebar */}
+      <Sidebar
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
+        onOpenYtdl={handleOpenYtdl}
+        onOpenCreatePlaylist={() => setCreatePlaylistOpen(true)}
+        onOpenAuth={() => setAuthOpen(true)}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      {/* Main View Area */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative">
+        {/* Mobile Header */}
+        <MobileHeader
+          onOpenYtdl={handleOpenYtdl}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+
+        {/* Scrollable Viewport */}
+        <main className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6">
+          {currentTab === "library" && (
+            <LibraryView
+              onEditSong={(song) => setEditSong(song)}
+              onAddToPlaylist={(song) => setAddToPlaylistSong(song)}
+              onDeleteSong={handleDeleteSong}
+              onOpenYtdl={handleOpenYtdl}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          )}
+
+          {currentTab === "playlists" && (
+            <PlaylistsView
+              onOpenCreatePlaylist={() => setCreatePlaylistOpen(true)}
+              onEditSong={(song) => setEditSong(song)}
+            />
+          )}
+
+          {currentTab === "favorites" && (
+            <FavoritesView
+              onEditSong={(song) => setEditSong(song)}
+              onAddToPlaylist={(song) => setAddToPlaylistSong(song)}
+              onOpenAuth={() => setAuthOpen(true)}
+            />
+          )}
+
+          {currentTab === "account" && (
+            <AccountView
+              onOpenAuth={() => setAuthOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+          )}
+        </main>
+
+        {/* Mobile Mini Player */}
+        <MobileMiniPlayer />
+
+        {/* Mobile Bottom Navigation */}
+        <MobileBottomNav
+          currentTab={currentTab}
+          onSelectTab={setCurrentTab}
+          onOpenAuth={() => setAuthOpen(true)}
+          isLoggedIn={!!user}
+        />
+
+        {/* Desktop Fixed Player Bar */}
+        <DesktopNowPlaying
+          onOpenQueue={() => setQueueOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      </div>
+
+      {/* Immersive Turntable Fullscreen Sheet */}
+      <FullscreenPlayerSheet onOpenQueue={() => setQueueOpen(true)} />
+
+      {/* Modals & Dialogs */}
+      <YtdlModal open={ytdlOpen} onOpenChange={setYtdlOpen} />
+      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
+      <CreatePlaylistModal open={createPlaylistOpen} onOpenChange={setCreatePlaylistOpen} />
+      <AddToPlaylistModal
+        song={addToPlaylistSong}
+        open={!!addToPlaylistSong}
+        onOpenChange={(open) => !open && setAddToPlaylistSong(null)}
+        onOpenCreatePlaylist={() => setCreatePlaylistOpen(true)}
+      />
+      <EditSongModal
+        song={editSong}
+        open={!!editSong}
+        onOpenChange={(open) => !open && setEditSong(null)}
+      />
+      <QueueDrawer open={queueOpen} onOpenChange={setQueueOpen} />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

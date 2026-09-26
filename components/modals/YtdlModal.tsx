@@ -217,10 +217,11 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
             target: track.url || track.searchQuery,
             title: track.title,
             artist: track.artist,
-            album: track.album || inspected.title,
+            album: track.album || (inspected.type === "album" ? inspected.title : undefined),
             duration: track.duration,
-            coverUrl: track.coverUrl || inspected.coverUrl,
+            coverUrl: track.coverUrl || (inspected.type === "album" ? inspected.coverUrl : undefined),
             playlistId: createdPlaylistId,
+            isPlaylist: inspected.type === "playlist",
           }),
         });
 

@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
           target = firstTrack.searchQuery || `ytsearch1:${firstTrack.artist} - ${firstTrack.title} audio`;
           overrideTitle = firstTrack.title;
           overrideArtist = firstTrack.artist;
-          overrideAlbum = firstTrack.album || resolved.title;
-          overrideCoverUrl = firstTrack.coverUrl || resolved.coverUrl;
+          overrideAlbum = firstTrack.album || (resolved.type === "album" ? resolved.title : null);
+          overrideCoverUrl = firstTrack.coverUrl || (resolved.type === "album" ? resolved.coverUrl : null);
         }
       } catch (err) {
         console.warn("Could not resolve Spotify URL:", err);
@@ -115,7 +115,20 @@ export async function POST(req: NextRequest) {
       "Unknown Artist";
     const album = overrideAlbum || (info.album as string) || "Downloaded Audio";
     const duration = typeof info.duration === "number" ? info.duration : 0;
-    const thumbnailUrl = overrideCoverUrl || (info.thumbnail as string) || null;
+    let downloadedThumbnail: string | null = null;
+    if (info.thumbnail && typeof info.thumbnail === "string") {
+      downloadedThumbnail = info.thumbnail;
+    } else if (Array.isArray(info.thumbnails) && info.thumbnails.length > 0) {
+      const lastThumb = info.thumbnails[info.thumbnails.length - 1];
+      if (lastThumb && typeof lastThumb.url === "string") {
+        downloadedThumbnail = lastThumb.url;
+      }
+    }
+
+    const isPlaylist = /playlist/i.test(url);
+    const thumbnailUrl = isPlaylist
+      ? (downloadedThumbnail || overrideCoverUrl || null)
+      : (overrideCoverUrl || downloadedThumbnail || null);
 
     let coverFilename: string | null = null;
     if (thumbnailUrl) {

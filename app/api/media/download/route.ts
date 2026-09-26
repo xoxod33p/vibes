@@ -105,8 +105,24 @@ export async function POST(req: NextRequest) {
         ? info.duration
         : 0;
 
-    // Cover art priority: body.coverUrl -> info.thumbnail
-    const candidateCover = (body.coverUrl as string) || (info.thumbnail as string) || null;
+    // Locate original song thumbnail from yt-dlp
+    let downloadedThumbnail: string | null = null;
+    if (info.thumbnail && typeof info.thumbnail === "string") {
+      downloadedThumbnail = info.thumbnail;
+    } else if (Array.isArray(info.thumbnails) && info.thumbnails.length > 0) {
+      const lastThumb = info.thumbnails[info.thumbnails.length - 1];
+      if (lastThumb && typeof lastThumb.url === "string") {
+        downloadedThumbnail = lastThumb.url;
+      }
+    }
+
+    // Cover art priority:
+    // If downloading a playlist track, prefer the song's original downloaded thumbnail
+    // to prevent playlist covers from being applied to individual songs.
+    const isPlaylist = Boolean(body.isPlaylist || body.playlistId);
+    const candidateCover = isPlaylist
+      ? (downloadedThumbnail || (body.coverUrl as string) || null)
+      : ((body.coverUrl as string) || downloadedThumbnail || null);
     let coverFilename: string | null = null;
 
     if (candidateCover) {

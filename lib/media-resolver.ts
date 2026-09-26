@@ -122,6 +122,7 @@ export async function resolveSpotify(url: string): Promise<ResolvedMedia> {
     });
   } else {
     // Playlist or Album
+    const isAlbum = entityType === "album";
     const trackList = (entity.trackList || []) as Array<{
       title: string;
       subtitle?: string;
@@ -141,10 +142,10 @@ export async function resolveSpotify(url: string): Promise<ResolvedMedia> {
         id: crypto.randomUUID(),
         title: trackTitle,
         artist: trackArtist,
-        album: mediaTitle,
+        album: isAlbum ? mediaTitle : undefined,
         duration: durSec,
         searchQuery: `ytsearch1:${trackArtist} - ${trackTitle} audio`,
-        coverUrl,
+        coverUrl: isAlbum ? coverUrl : null,
       });
     }
   }
@@ -223,7 +224,11 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
 
       const entryThumbs = (entry.thumbnails as Array<{ url: string }>) || [];
       const entryCover =
-        entryThumbs.length > 0 ? entryThumbs[entryThumbs.length - 1].url : coverUrl;
+        entryThumbs.length > 0
+          ? entryThumbs[entryThumbs.length - 1].url
+          : entryId
+          ? `https://i.ytimg.com/vi/${entryId}/hqdefault.jpg`
+          : null;
 
       if (entryUrl) {
         tracks.push({

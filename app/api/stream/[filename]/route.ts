@@ -48,6 +48,9 @@ export async function GET(
         "Content-Length": chunkSize.toString(),
         "Content-Type": "audio/mpeg",
         "Cache-Control": "public, max-age=604800, immutable",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
       },
     });
   } else {
@@ -61,7 +64,22 @@ export async function GET(
         "Content-Type": "audio/mpeg",
         "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=604800, immutable",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
       },
     });
   }
+}
+
+export async function OPTIONS() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Range, Content-Type",
+      "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+    },
+  });
 }

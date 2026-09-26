@@ -54,13 +54,13 @@ export async function POST(req: NextRequest) {
     const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
     const args = [
-      "-f", "bestaudio/best",
+      "-f", "bestaudio[ext=m4a]/bestaudio/best",
       "-o", outputTemplate,
       "--no-playlist",
       "--no-warnings",
       "--print-json",
-      // Use iOS player client to bypass YouTube n-challenge JS requirement
-      "--extractor-args", "youtube:player_client=ios",
+      // iOS + web fallback: iOS avoids n-challenge, web covers missing formats
+      "--extractor-args", "youtube:player_client=ios,web",
       // Point yt-dlp to the Node.js binary running this process (handles nvm paths)
       "--js-runtimes", `node:${process.execPath}`,
     ];

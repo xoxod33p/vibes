@@ -108,7 +108,7 @@ export function LibraryView({
           className="gap-2 h-9 text-xs px-3.5 shrink-0 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-medium"
         >
           <Download className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
-          <span>Import / Download</span>
+          <span>Download</span>
         </Button>
       </div>
 

@@ -30,7 +30,9 @@ export async function GET(
   const contentType = contentTypeMap[ext] ?? "audio/mpeg";
 
   const filePath = path.join(/*turbopackIgnore: true*/ UPLOAD_FOLDER, filename);
+  console.log(`[stream] Request: ${filename} → ${filePath} | exists: ${fs.existsSync(filePath)}`);
   if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+    console.error(`[stream] 404 - File not found: ${filePath}`);
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 

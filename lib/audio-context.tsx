@@ -53,6 +53,8 @@ const AudioContext = createContext<AudioContextType | null>(null);
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Ref so the one-time "ended" listener always calls the latest handleTrackEnded
+  const handleTrackEndedRef = useRef<() => void>(() => {});
 
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -91,7 +93,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     };
 
     const handleEnded = () => {
-      handleTrackEnded();
+      handleTrackEndedRef.current();
     };
 
     const handlePlay = () => setIsPlaying(true);
@@ -355,6 +357,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [queue, queueIndex, repeatMode, playSong]);
 
+
   const handleTrackEnded = useCallback(() => {
     if (repeatMode === "one") {
       const audio = audioRef.current;
@@ -366,6 +369,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       nextTrack();
     }
   }, [repeatMode, nextTrack]);
+
+  // Sync the ref whenever handleTrackEnded changes
+  useEffect(() => {
+    handleTrackEndedRef.current = handleTrackEnded;
+  }, [handleTrackEnded]);
 
   const setVolume = (val: number) => {
     const clamped = Math.max(0, Math.min(1, val));

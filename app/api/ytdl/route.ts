@@ -54,16 +54,12 @@ export async function POST(req: NextRequest) {
     const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
     const args = [
-      "-f", "bestaudio[ext=m4a]/bestaudio/best",
+      "-f", "bestaudio/best",
       "-o", outputTemplate,
       "--no-playlist",
       "--no-warnings",
       "--print-json",
       "--concurrent-fragments", "5",
-      // iOS + web fallback: iOS avoids n-challenge, web covers missing formats
-      "--extractor-args", "youtube:player_client=ios,web",
-      // Point yt-dlp to the Node.js binary running this process (handles nvm paths)
-      "--js-runtimes", `node:${process.execPath}`,
     ];
 
     const cookiesFile = getCookiesPath();

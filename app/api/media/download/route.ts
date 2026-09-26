@@ -6,6 +6,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { enqueueDownload, queueLength } from "@/lib/download-queue";
 
 const execFileAsync = promisify(execFile);
 
@@ -206,16 +207,20 @@ export async function POST(req: NextRequest) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `).run(songId, title, artist, album, duration, pendingFilename, null, session.userId);
 
-    // Fire-and-forget background download
-    runBackgroundDownload({
-      songId, tempStem, target, title, artist, album, duration,
-      coverUrl, isPlaylist, playlistId, userId: session.userId,
-    }).catch((err) => console.error("[download:bg] Unhandled error:", err));
+    // Add to sequential download queue (one at a time)
+    const position = enqueueDownload(() =>
+      runBackgroundDownload({
+        songId, tempStem, target, title, artist, album, duration,
+        coverUrl, isPlaylist, playlistId, userId: session.userId,
+      })
+    );
+    console.log(`[dl-queue] Queued "${title}" at position ${position}, queue length: ${queueLength()}`);
 
     // Return immediately with the pending song
     return NextResponse.json({
       success: true,
       pending: true,
+      queuePosition: position,
       song: { id: songId, title, artist, album, duration, filename: pendingFilename, cover: null, status: "pending" },
     }, { status: 202 });
 

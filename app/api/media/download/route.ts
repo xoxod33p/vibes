@@ -34,6 +34,7 @@ async function runBackgroundDownload(opts: {
     "--no-playlist",
     "--no-warnings",
     "--print-json",
+    "--concurrent-fragments", "5",
     // iOS + web fallback: iOS avoids n-challenge, web covers missing formats
     "--extractor-args", "youtube:player_client=ios,web",
     // Point yt-dlp to the Node.js binary running this process (handles nvm paths)

@@ -76,7 +76,7 @@ export function AccountView({ onOpenAuth, onOpenSettings }: AccountViewProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-2xl mx-auto pb-32 pt-2">
+    <div className="flex flex-col gap-6 w-full max-w-2xl mx-auto h-full overflow-y-auto pb-6 pt-2">
       {/* User Card */}
       <div className="glass-panel rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 border border-white/10 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[var(--accent-glow)] blur-3xl opacity-20 pointer-events-none" />

@@ -47,9 +47,9 @@ export function LibraryView({
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-32">
-      {/* Top Banner & Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+    <div className="flex flex-col h-full min-h-0 w-full max-w-7xl mx-auto gap-4">
+      {/* Fixed: Top Banner & Search */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2 shrink-0">
         <div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
             Music Library
@@ -77,8 +77,8 @@ export function LibraryView({
         </div>
       </div>
 
-      {/* Action Bar (Play All / Shuffle / Import) */}
-      <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-0.5">
+      {/* Fixed: Action Bar (Play All / Shuffle / Import) */}
+      <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-0.5 shrink-0">
         <Button
           variant="default"
           size="sm"
@@ -112,12 +112,12 @@ export function LibraryView({
         </Button>
       </div>
 
-      {/* Table Headers */}
+      {/* Fixed: Table Headers */}
       {filteredSongs.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-2 text-xs font-semibold text-neutral-400 border-b border-white/5 uppercase tracking-wider select-none">
+        <div className="flex items-center justify-between px-4 py-2 text-xs font-semibold text-neutral-400 border-b border-white/5 uppercase tracking-wider select-none shrink-0">
           <div className="flex items-center gap-4 flex-1">
             <span className="w-5 text-center">#</span>
-            <span>Title & Artist</span>
+            <span>Title &amp; Artist</span>
           </div>
           <div className="hidden lg:block w-1/4 px-2">Album</div>
           <div className="flex items-center gap-3 pr-2">
@@ -126,47 +126,50 @@ export function LibraryView({
         </div>
       )}
 
-      {/* Song List */}
-      {isLoadingSongs ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500">
-          <div className="w-8 h-8 rounded-full border-2 border-[var(--accent-primary)] border-t-transparent animate-spin" />
-          <p className="text-sm">Loading tracks from library...</p>
-        </div>
-      ) : filteredSongs.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          {filteredSongs.map((song, idx) => (
-            <TrackRow
-              key={song.id}
-              song={song}
-              index={idx}
-              playlistContext={filteredSongs}
-              onEditSong={onEditSong}
-              onAddToPlaylist={onAddToPlaylist}
-              onDeleteSong={onDeleteSong}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-24 text-center px-4 glass-panel rounded-3xl border border-white/5 my-4">
-          <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-            <Music className="w-8 h-8 text-[var(--accent-primary)]" />
+      {/* Scrollable: Song List only */}
+      <div className="flex-1 overflow-y-auto min-h-0 pb-4">
+        {isLoadingSongs ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500">
+            <div className="w-8 h-8 rounded-full border-2 border-[var(--accent-primary)] border-t-transparent animate-spin" />
+            <p className="text-sm">Loading tracks from library...</p>
           </div>
-          <h3 className="text-lg font-bold text-white mb-1">
-            {searchQuery ? "No matches found" : "Your library is empty"}
-          </h3>
-          <p className="text-xs text-neutral-400 max-w-sm mb-6">
-            {searchQuery
-              ? `No tracks match "${searchQuery}". Try a different search query.`
-              : "Download audio directly from YouTube to build your collection."}
-          </p>
-          <div className="flex items-center gap-3">
-            <Button variant="default" size="default" onClick={onOpenYtdl} className="gap-2 px-6">
-              <Download className="w-4 h-4" />
-              <span>Import YouTube Audio</span>
-            </Button>
+        ) : filteredSongs.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            {filteredSongs.map((song, idx) => (
+              <TrackRow
+                key={song.id}
+                song={song}
+                index={idx}
+                playlistContext={filteredSongs}
+                onEditSong={onEditSong}
+                onAddToPlaylist={onAddToPlaylist}
+                onDeleteSong={onDeleteSong}
+              />
+            ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24 text-center px-4 glass-panel rounded-3xl border border-white/5 my-4">
+            <div className="w-16 h-16 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
+              <Music className="w-8 h-8 text-[var(--accent-primary)]" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-1">
+              {searchQuery ? "No matches found" : "Your library is empty"}
+            </h3>
+            <p className="text-xs text-neutral-400 max-w-sm mb-6">
+              {searchQuery
+                ? `No tracks match "${searchQuery}". Try a different search query.`
+                : "Download audio directly from YouTube to build your collection."}
+            </p>
+            <div className="flex items-center gap-3">
+              <Button variant="default" size="default" onClick={onOpenYtdl} className="gap-2 px-6">
+                <Download className="w-4 h-4" />
+                <span>Import YouTube Audio</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
+
 }

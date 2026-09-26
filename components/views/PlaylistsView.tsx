@@ -83,7 +83,7 @@ export function PlaylistsView({ onOpenCreatePlaylist, onEditSong }: PlaylistsVie
   // If a playlist is selected, display its tracks
   if (selectedPlaylist) {
     return (
-      <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-32">
+      <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto h-full overflow-y-auto pb-6">
         {/* Back Button & Playlist Info */}
         <div className="flex items-center gap-3">
           <Button
@@ -151,7 +151,7 @@ export function PlaylistsView({ onOpenCreatePlaylist, onEditSong }: PlaylistsVie
 
   // Playlist Cards Grid
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-32">
+    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto h-full overflow-y-auto pb-6">
       <div className="flex items-center justify-between pt-2">
         <div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white flex items-center gap-3">

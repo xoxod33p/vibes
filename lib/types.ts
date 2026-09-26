@@ -8,6 +8,7 @@ export interface Song {
   cover?: string | null;
   user_id?: string | null;
   uploaded_at: string;
+  status?: "pending" | "ready" | "error";
 }
 
 export interface Playlist {

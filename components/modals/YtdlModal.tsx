@@ -163,8 +163,6 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
     }
 
     setDownloading(true);
-    setCurrentIndex(0);
-    setCompletedCount(0);
 
     let createdPlaylistId: string | null = null;
     const isMultiTrack =
@@ -173,7 +171,7 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
       inspected.type === "album";
     const targetPlaylistName = playlistName.trim() || inspected.title || "Imported Playlist";
 
-    // 1. Automatically create playlist in library for any playlist/album or multi-track download
+    // 1. Create playlist if needed
     if (isMultiTrack) {
       try {
         const plRes = await fetch("/api/playlists", {
@@ -190,102 +188,78 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
       }
     }
 
-    let successCount = 0;
-
-    // 2. Download selected tracks sequentially
-    for (let i = 0; i < selectedTracks.length; i++) {
-      const track = selectedTracks[i];
-      setCurrentIndex(i + 1);
-      setCurrentTrackName(`${track.artist} - ${track.title}`);
-
-      // Update track status to downloading
-      setInspected((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          tracks: prev.tracks.map((t) =>
-            t.id === track.id ? { ...t, status: "downloading" } : t
-          ),
-        };
-      });
-
-      try {
-        const res = await fetch("/api/media/download", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            target: track.url || track.searchQuery || `ytsearch1:${track.artist} - ${track.title} audio`,
-            title: track.title,
-            artist: track.artist,
-            album: track.album || (inspected.type === "album" ? inspected.title : undefined),
-            duration: track.duration,
-            coverUrl: track.coverUrl || (inspected.type === "album" ? inspected.coverUrl : undefined),
-            playlistId: createdPlaylistId,
-            isPlaylist: inspected.type === "playlist",
-          }),
-        });
-
-        const data = await res.json();
-        if (res.ok && data.success) {
-          successCount++;
-          setCompletedCount(successCount);
-          setInspected((prev) => {
-            if (!prev) return null;
-            return {
-              ...prev,
-              tracks: prev.tracks.map((t) =>
-                t.id === track.id ? { ...t, status: "done" } : t
-              ),
-            };
+    // 2. Queue all tracks simultaneously (fire-and-forget, API returns 202 immediately)
+    let queuedCount = 0;
+    await Promise.all(
+      selectedTracks.map(async (track) => {
+        try {
+          const res = await fetch("/api/media/download", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              target: track.url || track.searchQuery || `ytsearch1:${track.artist} - ${track.title} audio`,
+              title: track.title,
+              artist: track.artist,
+              album: track.album || (inspected.type === "album" ? inspected.title : undefined),
+              duration: track.duration,
+              coverUrl: track.coverUrl || (inspected.type === "album" ? inspected.coverUrl : undefined),
+              playlistId: createdPlaylistId,
+              isPlaylist: inspected.type === "playlist",
+            }),
           });
-        } else {
-          toast.error(data.error || `Download failed: ${track.title}`);
+
+          const data = await res.json();
+          if ((res.ok || res.status === 202) && data.success) {
+            queuedCount++;
+            setInspected((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                tracks: prev.tracks.map((t) =>
+                  t.id === track.id ? { ...t, status: "done" } : t
+                ),
+              };
+            });
+          } else {
+            setInspected((prev) => {
+              if (!prev) return null;
+              return {
+                ...prev,
+                tracks: prev.tracks.map((t) =>
+                  t.id === track.id ? { ...t, status: "error", errorMsg: data.error || "Failed" } : t
+                ),
+              };
+            });
+          }
+        } catch {
           setInspected((prev) => {
             if (!prev) return null;
             return {
               ...prev,
               tracks: prev.tracks.map((t) =>
-                t.id === track.id
-                  ? { ...t, status: "error", errorMsg: data.error || "Failed" }
-                  : t
+                t.id === track.id ? { ...t, status: "error", errorMsg: "Network error" } : t
               ),
             };
           });
         }
-      } catch (dlErr) {
-        console.error("Track download error:", dlErr);
-        setInspected((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            tracks: prev.tracks.map((t) =>
-              t.id === track.id
-                ? { ...t, status: "error", errorMsg: "Network error" }
-                : t
-            ),
-          };
-        });
-      }
-    }
+      })
+    );
 
     setDownloading(false);
     await refreshSongs();
-    await refreshPlaylists();
 
-    if (successCount > 0) {
-      if (createdPlaylistId) {
-        toast.success(
-          `Downloaded ${successCount} tracks and added to playlist "${targetPlaylistName}"!`
-        );
-      } else {
-        toast.success(
-          `Successfully downloaded ${successCount} track${successCount === 1 ? "" : "s"}!`
-        );
-      }
+    if (queuedCount > 0) {
+      const msg = createdPlaylistId
+        ? `Queued ${queuedCount} tracks → "${targetPlaylistName}" — downloading in background!`
+        : `Queued ${queuedCount} track${queuedCount === 1 ? "" : "s"} — downloading in background!`;
+      toast.success(msg);
+      onOpenChange(false);
+      handleReset();
     } else {
-      toast.error("Download failed for selected tracks.");
+      toast.error("Failed to queue tracks for download.");
     }
   };
+
 
   const handleReset = () => {
     setInspected(null);

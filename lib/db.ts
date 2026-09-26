@@ -47,6 +47,7 @@ if (globalThis.__vibes_db) {
         filename    TEXT NOT NULL UNIQUE,
         cover       TEXT,
         user_id     TEXT,
+        status      TEXT DEFAULT 'ready',
         uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     );
@@ -74,6 +75,11 @@ if (globalThis.__vibes_db) {
         FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
     );
   `);
+
+  // Migrate: add status column to existing songs tables
+  try {
+    dbInstance.exec("ALTER TABLE songs ADD COLUMN status TEXT DEFAULT 'ready'");
+  } catch { /* column already exists */ }
 }
 
 export function getCookiesPath(): string | null {

@@ -210,6 +210,36 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     refreshUser();
   }, [refreshSongs, refreshPlaylists, refreshUser]);
 
+  // Poll for pending downloads every 3s and refresh when they complete
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const pendingSongs = allSongs.filter((s) => s.status === "pending");
+      if (pendingSongs.length === 0) return;
+
+      let anyResolved = false;
+      await Promise.all(
+        pendingSongs.map(async (s) => {
+          try {
+            const res = await fetch(`/api/songs/${s.id}/status`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.song?.status === "ready" || data.song?.status === "error") {
+              anyResolved = true;
+            }
+          } catch { /* ignore */ }
+        })
+      );
+
+      if (anyResolved) {
+        await refreshSongs();
+        await refreshPlaylists();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [allSongs, refreshSongs, refreshPlaylists]);
+
+
   // Set audio source and play
   const playSong = useCallback(
     (song: Song, newQueue?: Song[]) => {

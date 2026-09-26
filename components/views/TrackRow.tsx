@@ -12,6 +12,7 @@ import {
   Edit2,
   Trash2,
   Disc3,
+  Loader2,
 } from "lucide-react";
 import { Song } from "@/lib/types";
 import { useAudio } from "@/lib/audio-context";
@@ -57,7 +58,10 @@ export function TrackRow({
   const isFav = favorites.has(song.id);
   const coverUrl = song.cover ? `/api/covers/${encodeURIComponent(song.cover)}` : null;
 
+  const isPending = song.status === "pending";
+
   const handleRowClick = () => {
+    if (isPending) return;
     if (isCurrent) {
       togglePlay();
     } else {
@@ -69,17 +73,21 @@ export function TrackRow({
     <div
       onClick={handleRowClick}
       className={cn(
-        "group flex items-center justify-between px-3 md:px-4 py-2.5 rounded-2xl transition-all cursor-pointer select-none",
-        isCurrent
-          ? "bg-[var(--accent-primary)]/15 border border-[var(--accent-primary)]/30 text-white shadow-sm"
-          : "hover:bg-white/5 border border-transparent text-neutral-300"
+        "group flex items-center justify-between px-3 md:px-4 py-2.5 rounded-2xl transition-all select-none",
+        isPending
+          ? "opacity-60 cursor-default border border-white/5 bg-white/3"
+          : isCurrent
+          ? "bg-[var(--accent-primary)]/15 border border-[var(--accent-primary)]/30 text-white shadow-sm cursor-pointer"
+          : "hover:bg-white/5 border border-transparent text-neutral-300 cursor-pointer"
       )}
     >
       {/* Left: Index / Equalizer + Thumbnail + Details */}
       <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
         {/* Track Index or Playing Indicator */}
         <div className="w-5 text-center shrink-0">
-          {isCurrent && isPlaying ? (
+          {isPending ? (
+            <Loader2 className="w-3.5 h-3.5 mx-auto text-[var(--accent-primary)] animate-spin" />
+          ) : isCurrent && isPlaying ? (
             <div className="flex items-center justify-center gap-0.5 h-4">
               <span className="w-0.5 bg-[var(--accent-primary)] eq-bar-1" />
               <span className="w-0.5 bg-[var(--accent-primary)] eq-bar-2" />
@@ -90,13 +98,15 @@ export function TrackRow({
               {index + 1}
             </span>
           )}
-          <span className="hidden group-hover:block text-neutral-200">
-            {isCurrent && isPlaying ? (
-              <Pause className="w-3.5 h-3.5 mx-auto fill-current" />
-            ) : (
-              <Play className="w-3.5 h-3.5 mx-auto fill-current ml-0.5" />
-            )}
-          </span>
+          {!isPending && (
+            <span className="hidden group-hover:block text-neutral-200">
+              {isCurrent && isPlaying ? (
+                <Pause className="w-3.5 h-3.5 mx-auto fill-current" />
+              ) : (
+                <Play className="w-3.5 h-3.5 mx-auto fill-current ml-0.5" />
+              )}
+            </span>
+          )}
         </div>
 
         {/* Thumbnail */}
@@ -118,14 +128,21 @@ export function TrackRow({
 
         {/* Title & Artist */}
         <div className="min-w-0 flex-1 pr-2">
-          <p
-            className={cn(
-              "font-medium text-sm truncate",
-              isCurrent ? "text-white font-semibold" : "text-neutral-200 group-hover:text-white"
+          <div className="flex items-center gap-2">
+            <p
+              className={cn(
+                "font-medium text-sm truncate",
+                isCurrent ? "text-white font-semibold" : "text-neutral-200 group-hover:text-white"
+              )}
+            >
+              {song.title}
+            </p>
+            {isPending && (
+              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border border-[var(--accent-primary)]/30 font-medium">
+                Downloading
+              </span>
             )}
-          >
-            {song.title}
-          </p>
+          </div>
           <p className="text-xs text-neutral-400 truncate mt-0.5">{song.artist}</p>
         </div>
       </div>

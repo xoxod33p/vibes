@@ -167,6 +167,8 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
     "-J",
     "--no-warnings",
     "--skip-download",
+    "--no-check-formats",
+    "--ignore-errors",
   ];
 
   const cookiesFile = getCookiesPath();

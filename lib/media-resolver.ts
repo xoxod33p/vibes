@@ -309,12 +309,35 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
   }
 }
 
+/**
+ * Clean YouTube URLs by stripping auto-generated Mix playlist params (list=RD...).
+ * YouTube Mixes are personalized and can't be fetched via yt-dlp.
+ * Regular playlists (list=PL...) are kept intact.
+ */
+function cleanYouTubeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const list = parsed.searchParams.get("list");
+    // YouTube Mixes start with "RD" — remove them
+    if (list && list.startsWith("RD")) {
+      parsed.searchParams.delete("list");
+      // Also remove the mix-related index/start_radio params
+      parsed.searchParams.delete("index");
+      parsed.searchParams.delete("start_radio");
+      return parsed.toString();
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
+
 export async function inspectMediaUrl(url: string): Promise<ResolvedMedia> {
   const trimmed = url.trim();
   if (isSpotifyUrl(trimmed)) {
     return resolveSpotify(trimmed);
   } else if (isYouTubeUrl(trimmed)) {
-    return resolveYouTube(trimmed);
+    return resolveYouTube(cleanYouTubeUrl(trimmed));
   } else {
     // Fallback: try YouTube ytsearch or URL
     return resolveYouTube(trimmed);

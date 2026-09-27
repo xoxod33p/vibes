@@ -52,7 +52,7 @@ export async function DELETE() {
       });
     }
 
-    // Delete disk files and associations
+    // Delete disk files first (outside transaction since FS ops can't be rolled back)
     for (const song of userSongs) {
       if (song.filename) {
         const audioPath = path.join(UPLOAD_FOLDER, song.filename);
@@ -75,19 +75,21 @@ export async function DELETE() {
           }
         }
       }
-
-      // Cleanup playlist and favorite associations
-      try {
-        db.prepare("DELETE FROM playlist_songs WHERE song_id = ?").run(song.id);
-        db.prepare("DELETE FROM favorites WHERE song_id = ?").run(song.id);
-      } catch (assocErr) {
-        console.warn("Could not clean associations:", assocErr);
-      }
     }
 
-    // Delete database records
-    const delStmt = db.prepare("DELETE FROM songs WHERE user_id = ?");
-    delStmt.run(session.userId);
+    // Atomic DB cleanup in a single transaction
+    try {
+      db.exec("BEGIN");
+      for (const song of userSongs) {
+        db.prepare("DELETE FROM playlist_songs WHERE song_id = ?").run(song.id);
+        db.prepare("DELETE FROM favorites WHERE song_id = ?").run(song.id);
+      }
+      db.prepare("DELETE FROM songs WHERE user_id = ?").run(session.userId);
+      db.exec("COMMIT");
+    } catch (txErr) {
+      db.exec("ROLLBACK");
+      throw txErr;
+    }
 
     return NextResponse.json({
       success: true,

@@ -298,7 +298,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     [queue, audioQuality]
   );
 
-  const togglePlay = () => {
+  const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     if (audio.paused) {
@@ -310,7 +310,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     } else {
       audio.pause();
     }
-  };
+  }, [currentSong, playSong]);
 
   const pause = () => audioRef.current?.pause();
   const resume = () => audioRef.current?.play().catch(() => {});
@@ -327,7 +327,13 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     let nextIdx: number;
 
     if (isShuffle) {
-      nextIdx = Math.floor(Math.random() * queue.length);
+      if (queue.length <= 1) {
+        nextIdx = 0;
+      } else {
+        do {
+          nextIdx = Math.floor(Math.random() * queue.length);
+        } while (nextIdx === queueIndex);
+      }
     } else {
       nextIdx = queueIndex + 1;
       if (nextIdx >= queue.length) {
@@ -405,15 +411,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleShuffle = () => {
+  const toggleShuffle = useCallback(() => {
     setIsShuffle((prev) => {
       const next = !prev;
       toast(next ? "Shuffle Enabled" : "Shuffle Disabled");
       return next;
     });
-  };
+  }, []);
 
-  const toggleRepeat = () => {
+  const toggleRepeat = useCallback(() => {
     setRepeatMode((prev) => {
       if (prev === "off") {
         toast("Repeat All");
@@ -426,7 +432,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       toast("Repeat Off");
       return "off";
     });
-  };
+  }, []);
 
   const addToQueue = (song: Song) => {
     setQueue((prev) => [...prev, song]);
@@ -528,7 +534,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentTime, duration, volume, isMuted, currentSong, favorites, user]);
+  }, [currentTime, duration, currentSong, togglePlay, toggleShuffle, toggleRepeat, toggleFavorite]);
 
   return (
     <AudioContext.Provider

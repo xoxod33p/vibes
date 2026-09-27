@@ -10,16 +10,24 @@ export async function DELETE(
   const session = await getCurrentUser();
 
   try {
+    let changes = 0;
     if (session?.userId) {
       const stmt = db.prepare(
         "DELETE FROM playlists WHERE id = ? AND (user_id = ? OR user_id IS NULL)"
       );
-      stmt.run(id, session.userId);
+      const result = stmt.run(id, session.userId);
+      changes = (result as unknown as { changes: number }).changes ?? 0;
     } else {
       const stmt = db.prepare("DELETE FROM playlists WHERE id = ? AND user_id IS NULL");
-      stmt.run(id);
+      const result = stmt.run(id);
+      changes = (result as unknown as { changes: number }).changes ?? 0;
     }
 
+    if (changes === 0) {
+      return NextResponse.json({ error: "Playlist not found or not authorized" }, { status: 404 });
+    }
+
+    // Only clean up associations if we actually deleted the playlist
     db.prepare("DELETE FROM playlist_songs WHERE playlist_id = ?").run(id);
 
     return NextResponse.json({ success: true });
@@ -28,3 +36,4 @@ export async function DELETE(
     return NextResponse.json({ error: "Failed to delete playlist" }, { status: 500 });
   }
 }
+

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { db, UPLOAD_FOLDER, COVERS_FOLDER } from "@/lib/db";
 import { Song } from "@/lib/types";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
@@ -24,11 +25,20 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const session = await getCurrentUser();
+  if (!session?.userId) {
+    return NextResponse.json({ error: "Login required" }, { status: 401 });
+  }
+
   const stmt = db.prepare("SELECT * FROM songs WHERE id = ?");
   const song = stmt.get(id) as Song | undefined;
 
   if (!song) {
     return NextResponse.json({ error: "Song not found" }, { status: 404 });
+  }
+
+  if (song.user_id && song.user_id !== session.userId) {
+    return NextResponse.json({ error: "Not authorized to edit this song" }, { status: 403 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -49,11 +59,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const session = await getCurrentUser();
+  if (!session?.userId) {
+    return NextResponse.json({ error: "Login required" }, { status: 401 });
+  }
+
   const stmt = db.prepare("SELECT * FROM songs WHERE id = ?");
   const song = stmt.get(id) as Song | undefined;
 
   if (!song) {
     return NextResponse.json({ error: "Song not found" }, { status: 404 });
+  }
+
+  if (song.user_id && song.user_id !== session.userId) {
+    return NextResponse.json({ error: "Not authorized to delete this song" }, { status: 403 });
   }
 
   // Delete audio file
@@ -87,3 +106,4 @@ export async function DELETE(
 
   return NextResponse.json({ success: true });
 }
+

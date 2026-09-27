@@ -63,7 +63,7 @@ async function runBackgroundDownload(opts: {
 
     try {
       const lines = res.stdout.trim().split("\n");
-      const lastJsonLine = lines.find((l) => l.startsWith("{") && l.endsWith("}")) || lines[0];
+      const lastJsonLine = lines.findLast((l) => l.startsWith("{") && l.endsWith("}")) || lines[lines.length - 1];
       info = JSON.parse(lastJsonLine);
     } catch {
       console.warn("[download:bg] Could not parse yt-dlp JSON output");

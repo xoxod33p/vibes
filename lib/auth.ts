@@ -71,10 +71,10 @@ export function verifyPassword(password: string, storedHash: string): boolean {
         });
 
         const derivedHex = derived.toString("hex");
-        return crypto.timingSafeEqual(
-          Buffer.from(derivedHex, "utf-8"),
-          Buffer.from(expectedHex, "utf-8")
-        );
+        const a = Buffer.from(derivedHex, "utf-8");
+        const b = Buffer.from(expectedHex, "utf-8");
+        if (a.length !== b.length) return false;
+        return crypto.timingSafeEqual(a, b);
       }
     } catch (e) {
       console.error("scrypt verification error:", e);

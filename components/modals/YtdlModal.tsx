@@ -105,10 +105,11 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
         } catch { /* ignore */ }
       }
 
-      // 3. Queue all downloads in parallel (returns 202 immediately)
-      const results = await Promise.all(
-        tracks.map((track) =>
-          fetch("/api/media/download", {
+      // 3. Queue downloads one at a time (sequential)
+      let successCount = 0;
+      for (const track of tracks) {
+        try {
+          const res = await fetch("/api/media/download", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -121,11 +122,12 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
               playlistId: createdPlaylistId,
               isPlaylist,
             }),
-          }).then((r) => r.ok || r.status === 202)
-        )
-      );
-
-      const successCount = results.filter(Boolean).length;
+          });
+          if (res.ok || res.status === 202) successCount++;
+        } catch {
+          console.warn(`[ytdl] Failed to queue: ${track.title}`);
+        }
+      }
       setQueued(successCount);
       setDone(true);
 

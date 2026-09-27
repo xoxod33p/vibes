@@ -29,6 +29,9 @@ if (globalThis.__vibes_db) {
   dbInstance = new DatabaseSync(DB_PATH);
   globalThis.__vibes_db = dbInstance;
 
+  // Enable foreign key enforcement (SQLite has them off by default)
+  dbInstance.exec("PRAGMA foreign_keys = ON");
+
   // Initialize schema if not present
   dbInstance.exec(`
     CREATE TABLE IF NOT EXISTS users (

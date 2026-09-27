@@ -28,7 +28,8 @@ async function runBackgroundDownload(opts: {
   const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
   const args = [
-    "-f", "bestaudio*/best",
+    "-x",
+    "--audio-format", "best",
     "-o", outputTemplate,
     "--no-playlist",
     "--no-warnings",

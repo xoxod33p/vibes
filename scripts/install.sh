@@ -32,7 +32,7 @@ if command -v node &>/dev/null; then
     NODE_PATH="$(which node)"
     echo "  Already installed: $(node -v) at $NODE_PATH"
 else
-    NODE_VERSION="20.18.0"
+    NODE_VERSION=$(curl -fsSL https://nodejs.org/dist/index.json | grep -oP '"version":"v\K[0-9.]+' | head -1)
     NODE_TAR="node-v${NODE_VERSION}-linux-${ARCH_LABEL}.tar.xz"
     NODE_URL="https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TAR}"
     NODE_DIR="$BIN_DIR/node"

@@ -20,7 +20,8 @@ $NodePath = Get-Command node -ErrorAction SilentlyContinue
 if ($NodePath) {
     Write-Host "  Already installed: $(node -v) at $($NodePath.Source)" -ForegroundColor Green
 } else {
-    $NodeVersion = "20.18.0"
+    $NodeIndex = Invoke-RestMethod -Uri "https://nodejs.org/dist/index.json" -UseBasicParsing
+    $NodeVersion = ($NodeIndex | Where-Object { $_.lts } | Select-Object -First 1).version.TrimStart("v")
     $NodeZip = "node-v$NodeVersion-win-x64.zip"
     $NodeUrl = "https://nodejs.org/dist/v$NodeVersion/$NodeZip"
     $NodeDir = Join-Path $BinDir "node"

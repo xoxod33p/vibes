@@ -135,16 +135,11 @@ export function YtdlModal({ open, onOpenChange }: YtdlModalProps) {
       await refreshPlaylists();
 
       if (successCount > 0) {
-        const msg = createdPlaylistId
-          ? `Queued ${successCount} tracks → "${playlistName}" — downloading in background!`
-          : `Queued ${successCount} track${successCount === 1 ? "" : "s"} — downloading in background!`;
-        toast.success(msg);
         setTimeout(() => {
           onOpenChange(false);
           handleReset();
-        }, 1200);
+        }, 400);
       } else {
-        toast.error("Failed to queue download. Check the URL and try again.");
         setDone(false);
       }
     } catch (err) {

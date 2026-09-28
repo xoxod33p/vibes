@@ -291,8 +291,7 @@ function getAuthHeaders(): Record<string, string> {
                 }, 4000);
               }
             } else if (msg.type === "download:complete") {
-              const { songId, song } = msg.data;
-              toast.success(`"${song?.title || "Track"}" is ready to play!`);
+              const { songId } = msg.data;
               refreshSongs();
               refreshPlaylists();
               setTimeout(() => {
@@ -303,7 +302,6 @@ function getAuthHeaders(): Record<string, string> {
                 });
               }, 3000);
             } else if (msg.type === "download:error") {
-              toast.error(`Download failed: ${msg.data.error?.slice(0, 80) || "Unknown error"}`);
               refreshSongs();
               setTimeout(() => {
                 setActiveDownloads((prev) => {

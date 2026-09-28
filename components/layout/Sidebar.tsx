@@ -10,6 +10,7 @@ import {
   Settings,
   User as UserIcon,
   LogOut,
+  DownloadCloud,
 } from "lucide-react";
 import { useAudio } from "@/lib/audio-context";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,10 @@ export function Sidebar({
   onOpenAuth,
   onOpenSettings,
 }: SidebarProps) {
-  const { user, refreshUser } = useAudio();
+  const { user, refreshUser, activeDownloads } = useAudio();
+  const activeDownloadCount = Object.values(activeDownloads).filter(
+    (d) => d.status !== "ready" && d.status !== "error"
+  ).length;
 
   const handleLogout = async () => {
     try {
@@ -100,6 +104,24 @@ export function Sidebar({
           >
             <Heart className={cn("w-4 h-4", currentTab === "favorites" ? "text-red-400 fill-current" : "")} />
             <span>Favorites</span>
+          </button>
+
+          <button
+            onClick={() => onSelectTab("downloads")}
+            className={cn(
+              "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all text-left cursor-pointer",
+              currentTab === "downloads"
+                ? "bg-[var(--accent-primary)]/15 text-white border border-[var(--accent-primary)]/30 shadow-sm"
+                : "text-neutral-400 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <DownloadCloud className={cn("w-4 h-4", currentTab === "downloads" ? "text-[var(--accent-primary)]" : "")} />
+            <span className="flex-1">Downloads</span>
+            {activeDownloadCount > 0 && (
+              <span className="ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] tabular-nums min-w-[18px] text-center animate-pulse">
+                {activeDownloadCount}
+              </span>
+            )}
           </button>
         </nav>
 

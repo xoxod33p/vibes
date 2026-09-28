@@ -20,6 +20,7 @@ import { LibraryView } from "@/components/views/LibraryView";
 import { PlaylistsView } from "@/components/views/PlaylistsView";
 import { FavoritesView } from "@/components/views/FavoritesView";
 import { AccountView } from "@/components/views/AccountView";
+import { DownloadsView } from "@/components/views/DownloadsView";
 
 // Modal components
 import { YtdlModal } from "@/components/modals/YtdlModal";
@@ -130,6 +131,8 @@ export default function HomePage() {
               onOpenSettings={() => setSettingsOpen(true)}
             />
           )}
+
+          {currentTab === "downloads" && <DownloadsView />}
         </main>
 
         {/* Mobile Mini Player */}

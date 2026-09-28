@@ -52,11 +52,11 @@ export function Sidebar({
   };
 
   return (
-    <aside className="hidden md:flex flex-col justify-between w-64 h-screen border-r border-white/5 bg-[#080b12]/80 backdrop-blur-xl p-5 select-none shrink-0 z-30">
+    <aside className="hidden md:flex flex-col w-64 h-screen border-r border-white/5 bg-[#080b12]/80 backdrop-blur-xl p-5 select-none shrink-0 z-30">
       {/* Top Section */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-y-auto">
         {/* Brand Header with centered logo */}
-        <div className="flex items-center justify-center py-2 px-2 border-b border-white/5">
+        <div className="flex items-center justify-center py-2 px-2 border-b border-white/5 shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
@@ -66,7 +66,7 @@ export function Sidebar({
         </div>
 
         {/* Primary Navigation */}
-        <nav className="flex flex-col gap-1">
+        <nav className="flex flex-col gap-1 shrink-0">
           <button
             onClick={() => onSelectTab("library")}
             className={cn(
@@ -126,7 +126,7 @@ export function Sidebar({
         </nav>
 
         {/* Quick Actions */}
-        <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+        <div className="flex flex-col gap-2 pt-2 border-t border-white/5 shrink-0">
           <p className="px-3 text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
             Quick Actions
           </p>
@@ -154,7 +154,7 @@ export function Sidebar({
       </div>
 
       {/* Bottom Profile / Account Section */}
-      <div className="pt-4 border-t border-white/5 flex flex-col gap-2">
+      <div className="pt-4 border-t border-white/5 flex flex-col gap-2 shrink-0 mt-auto">
         <div className="flex items-center justify-between p-2 rounded-xl glass-pill">
           {user ? (
             <div className="flex items-center gap-3 min-w-0">

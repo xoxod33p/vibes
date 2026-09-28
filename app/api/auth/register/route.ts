@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
-import { hashPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
+import { hashPassword, createSessionToken, getSessionCookieOptions, COOKIE_NAME } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,6 +39,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (email) {
+      const existingEmail = db.prepare("SELECT id FROM users WHERE LOWER(email) = LOWER(?)").get(email);
+      if (existingEmail) {
+        return NextResponse.json(
+          { error: "An account with this email already exists." },
+          { status: 409 }
+        );
+      }
+    }
+
     const userId = crypto.randomUUID();
     const pwHash = hashPassword(password);
 
@@ -49,18 +61,14 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json(
       {
         success: true,
+        token,
         user: { id: userId, username, email },
       },
       { status: 201 }
     );
 
-    response.cookies.set(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    const cookieOptions = getSessionCookieOptions(req);
+    response.cookies.set(COOKIE_NAME, token, cookieOptions);
 
     return response;
   } catch (error) {
@@ -68,3 +76,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to register user" }, { status: 500 });
   }
 }
+

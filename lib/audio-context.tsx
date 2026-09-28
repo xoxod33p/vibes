@@ -177,9 +177,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+function getAuthHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  try {
+    const token = localStorage.getItem("vibes_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    return {};
+  }
+}
+
   const refreshPlaylists = useCallback(async () => {
     try {
-      const res = await fetch("/api/playlists");
+      const res = await fetch("/api/playlists", {
+        headers: getAuthHeaders(),
+      });
       if (res.ok) {
         const data = await res.json();
         setPlaylists(data);
@@ -191,13 +203,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = useCallback(async () => {
     try {
-      const res = await fetch("/api/auth/me");
+      const authHeaders = getAuthHeaders();
+      const res = await fetch("/api/auth/me", {
+        headers: {
+          "Cache-Control": "no-cache",
+          ...authHeaders,
+        },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated && data.user) {
           setUser(data.user);
           // Load favorites
-          const favRes = await fetch("/api/favorites/ids");
+          const favRes = await fetch("/api/favorites/ids", {
+            headers: authHeaders,
+          });
           if (favRes.ok) {
             const favIds = await favRes.json();
             setFavorites(new Set(favIds));
@@ -464,6 +484,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch(`/api/favorites/${songId}`, {
         method: isFav ? "DELETE" : "POST",
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         setFavorites((prev) => {

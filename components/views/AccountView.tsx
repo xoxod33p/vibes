@@ -27,6 +27,9 @@ export function AccountView({ onOpenAuth, onOpenSettings }: AccountViewProps) {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+      try {
+        localStorage.removeItem("vibes_token");
+      } catch {}
       await refreshUser();
     } catch (e) {
       console.error("Logout failed:", e);

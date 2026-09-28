@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { Song } from "@/lib/types";
 import { getCurrentUser } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
@@ -27,12 +29,12 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   try {
     const fs = await import("node:fs");
     const path = await import("node:path");
     const { UPLOAD_FOLDER, COVERS_FOLDER } = await import("@/lib/db");
-    const session = await getCurrentUser();
+    const session = await getCurrentUser(req);
     if (!session?.userId) {
       return NextResponse.json(
         { error: "Please sign in to manage your library" },

@@ -3,9 +3,11 @@ import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
-export async function GET() {
+export const dynamic = "force-dynamic";
+
+export async function GET(req: NextRequest) {
   try {
-    const session = await getCurrentUser();
+    const session = await getCurrentUser(req);
     let rows: unknown[];
 
     if (session?.userId) {
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Playlist name is required" }, { status: 400 });
     }
 
-    const session = await getCurrentUser();
+    const session = await getCurrentUser(req);
     const pid = crypto.randomUUID();
 
     const stmt = db.prepare(`

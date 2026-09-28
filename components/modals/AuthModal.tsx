@@ -38,6 +38,13 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
       const data = await res.json();
       if (res.ok && data.success) {
+        if (data.token) {
+          try {
+            localStorage.setItem("vibes_token", data.token);
+          } catch {
+            // ignore localStorage errors (e.g. private mode)
+          }
+        }
         toast.success(mode === "login" ? `Welcome back, ${data.user.username}!` : `Account created! Welcome, ${data.user.username}!`);
         await refreshUser();
         onOpenChange(false);
@@ -111,9 +118,11 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3.5 py-2">
-          {/* Username */}
+          {/* Username or Email */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-neutral-300">Username</label>
+            <label className="text-xs font-medium text-neutral-300">
+              {mode === "login" ? "Username or Email" : "Username"}
+            </label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 z-10 pointer-events-none" />
               <input
@@ -121,7 +130,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                placeholder={mode === "login" ? "Enter username or email" : "Enter username"}
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-[#131722] border border-white/10 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-[var(--accent-primary)] focus:ring-1 focus:ring-[var(--accent-primary)]"
               />
             </div>

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyPassword, createSessionToken, COOKIE_NAME } from "@/lib/auth";
+import { verifyPassword, createSessionToken, getSessionCookieOptions, COOKIE_NAME } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 interface UserRow {
   id: string;
@@ -12,21 +14,34 @@ interface UserRow {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const username = (body.username || "").trim();
+    const identifier = (body.username || body.email || body.identifier || "").trim();
     const password = (body.password || "").trim();
 
-    if (!username || !password) {
+    if (!identifier || !password) {
       return NextResponse.json(
         { error: "Username and password are required" },
         { status: 400 }
       );
     }
 
-    const user = db.prepare(
-      "SELECT * FROM users WHERE LOWER(username) = LOWER(?)"
-    ).get(username) as UserRow | undefined;
+    // Allow signing in with either username OR registered email
+    const user = db.prepare(`
+      SELECT * FROM users 
+      WHERE LOWER(username) = LOWER(?) 
+         OR (email != '' AND LOWER(email) = LOWER(?))
+      LIMIT 1
+    `).get(identifier, identifier) as UserRow | undefined;
 
-    if (!user || !verifyPassword(password, user.password_hash)) {
+    let isMatch = false;
+    if (user) {
+      isMatch = verifyPassword(password, user.password_hash);
+      // Try untrimmed password fallback if trimmed failed
+      if (!isMatch && body.password && body.password !== password) {
+        isMatch = verifyPassword(body.password, user.password_hash);
+      }
+    }
+
+    if (!user || !isMatch) {
       return NextResponse.json(
         { error: "Invalid username or password" },
         { status: 401 }
@@ -36,6 +51,7 @@ export async function POST(req: NextRequest) {
     const token = await createSessionToken({ userId: user.id, username: user.username });
     const response = NextResponse.json({
       success: true,
+      token,
       user: {
         id: user.id,
         username: user.username,
@@ -43,13 +59,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.cookies.set(COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    const cookieOptions = getSessionCookieOptions(req);
+    response.cookies.set(COOKIE_NAME, token, cookieOptions);
 
     return response;
   } catch (error) {
@@ -57,3 +68,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to login" }, { status: 500 });
   }
 }
+

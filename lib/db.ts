@@ -9,84 +9,96 @@ const COVERS_FOLDER = path.join(BASE_DIR, "public", "covers");
 const TRANSCODE_DIR = path.join(BASE_DIR, "cache", "transcode");
 const DB_PATH = path.join(BASE_DIR, "music.db");
 
-for (const dir of [UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR]) {
-  if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
-    fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
-  }
-}
-
 // Global singleton for DatabaseSync to prevent multiple open handles in Next.js hot reload
 declare global {
   // eslint-disable-next-line no-var
   var __vibes_db: DatabaseSync | undefined;
 }
 
+// During `next build`, multiple worker processes import this module simultaneously.
+// They only collect route config (not execute handlers), so we skip the real DB
+// open entirely to avoid "database is locked" deadlocks between workers.
+const isBuild = process.env.NEXT_PHASE === "phase-production-build";
+
 let dbInstance: DatabaseSync;
 
-if (globalThis.__vibes_db) {
-  dbInstance = globalThis.__vibes_db;
+if (isBuild) {
+  // Return a stub — build workers never actually call DB methods
+  dbInstance = new Proxy({} as DatabaseSync, {
+    get: () => () => ({ changes: 0, lastInsertRowid: 0 }),
+  });
 } else {
-  dbInstance = new DatabaseSync(DB_PATH);
-  globalThis.__vibes_db = dbInstance;
+  for (const dir of [UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR]) {
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
+    }
+  }
 
-  // WAL mode + busy timeout to handle concurrent access (next build workers)
-  dbInstance.exec("PRAGMA journal_mode = WAL");
-  dbInstance.exec("PRAGMA busy_timeout = 5000");
+  if (globalThis.__vibes_db) {
+    dbInstance = globalThis.__vibes_db;
+  } else {
+    dbInstance = new DatabaseSync(DB_PATH);
+    globalThis.__vibes_db = dbInstance;
 
-  // Enable foreign key enforcement (SQLite has them off by default)
-  dbInstance.exec("PRAGMA foreign_keys = ON");
+    // WAL mode + busy timeout to handle concurrent access
+    dbInstance.exec("PRAGMA journal_mode = WAL");
+    dbInstance.exec("PRAGMA busy_timeout = 5000");
 
-  // Initialize schema if not present
-  dbInstance.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-        id            TEXT PRIMARY KEY,
-        username      TEXT NOT NULL UNIQUE COLLATE NOCASE,
-        email         TEXT DEFAULT '',
-        password_hash TEXT NOT NULL,
-        created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-    CREATE TABLE IF NOT EXISTS songs (
-        id          TEXT PRIMARY KEY,
-        title       TEXT NOT NULL,
-        artist      TEXT DEFAULT 'Unknown Artist',
-        album       TEXT DEFAULT 'Unknown Album',
-        duration    REAL DEFAULT 0,
-        filename    TEXT NOT NULL UNIQUE,
-        cover       TEXT,
-        user_id     TEXT,
-        status      TEXT DEFAULT 'ready',
-        uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
-    );
-    CREATE TABLE IF NOT EXISTS playlists (
-        id         TEXT PRIMARY KEY,
-        name       TEXT NOT NULL,
-        user_id    TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-    CREATE TABLE IF NOT EXISTS playlist_songs (
-        playlist_id TEXT NOT NULL,
-        song_id     TEXT NOT NULL,
-        position    INTEGER DEFAULT 0,
-        PRIMARY KEY (playlist_id, song_id),
-        FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
-        FOREIGN KEY (song_id)     REFERENCES songs(id)     ON DELETE CASCADE
-    );
-    CREATE TABLE IF NOT EXISTS favorites (
-        user_id    TEXT NOT NULL,
-        song_id    TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (user_id, song_id),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
-    );
-  `);
+    // Enable foreign key enforcement (SQLite has them off by default)
+    dbInstance.exec("PRAGMA foreign_keys = ON");
 
-  // Migrate: add status column to existing songs tables
-  try {
-    dbInstance.exec("ALTER TABLE songs ADD COLUMN status TEXT DEFAULT 'ready'");
-  } catch { /* column already exists */ }
+    // Initialize schema if not present
+    dbInstance.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+          id            TEXT PRIMARY KEY,
+          username      TEXT NOT NULL UNIQUE COLLATE NOCASE,
+          email         TEXT DEFAULT '',
+          password_hash TEXT NOT NULL,
+          created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS songs (
+          id          TEXT PRIMARY KEY,
+          title       TEXT NOT NULL,
+          artist      TEXT DEFAULT 'Unknown Artist',
+          album       TEXT DEFAULT 'Unknown Album',
+          duration    REAL DEFAULT 0,
+          filename    TEXT NOT NULL UNIQUE,
+          cover       TEXT,
+          user_id     TEXT,
+          status      TEXT DEFAULT 'ready',
+          uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE TABLE IF NOT EXISTS playlists (
+          id         TEXT PRIMARY KEY,
+          name       TEXT NOT NULL,
+          user_id    TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS playlist_songs (
+          playlist_id TEXT NOT NULL,
+          song_id     TEXT NOT NULL,
+          position    INTEGER DEFAULT 0,
+          PRIMARY KEY (playlist_id, song_id),
+          FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+          FOREIGN KEY (song_id)     REFERENCES songs(id)     ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS favorites (
+          user_id    TEXT NOT NULL,
+          song_id    TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id, song_id),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
+      );
+    `);
+
+    // Migrate: add status column to existing songs tables
+    try {
+      dbInstance.exec("ALTER TABLE songs ADD COLUMN status TEXT DEFAULT 'ready'");
+    } catch { /* column already exists */ }
+  }
 }
 
 /** Returns the cookies file path from COOKIES_PATH env, or null if not set. */

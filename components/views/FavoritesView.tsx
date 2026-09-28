@@ -72,8 +72,9 @@ export function FavoritesView({ onEditSong, onAddToPlaylist, onOpenAuth }: Favor
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto h-full overflow-y-auto pb-6">
-      <div className="flex items-center justify-between pt-2">
+    <div className="flex flex-col h-full min-h-0 w-full max-w-7xl mx-auto gap-4">
+      {/* Fixed header */}
+      <div className="flex items-center justify-between pt-2 shrink-0">
         <div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
             Favorite Tracks
@@ -95,35 +96,38 @@ export function FavoritesView({ onEditSong, onAddToPlaylist, onOpenAuth }: Favor
         )}
       </div>
 
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500">
-          <div className="w-8 h-8 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
-          <p className="text-sm">Loading favorites...</p>
-        </div>
-      ) : favoriteSongs.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          {favoriteSongs.map((song, idx) => (
-            <TrackRow
-              key={song.id}
-              song={song}
-              index={idx}
-              playlistContext={favoriteSongs}
-              onEditSong={onEditSong}
-              onAddToPlaylist={onAddToPlaylist}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-24 text-center px-4 glass-panel rounded-3xl border border-white/5 my-4">
-          <div className="w-16 h-16 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
-            <Heart className="w-8 h-8 text-red-400" />
+      {/* Scrollable list only */}
+      <div className="flex-1 overflow-y-auto min-h-0 pb-4">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-neutral-500">
+            <div className="w-8 h-8 rounded-full border-2 border-red-500 border-t-transparent animate-spin" />
+            <p className="text-sm">Loading favorites...</p>
           </div>
-          <h3 className="text-lg font-bold text-white mb-1">No favorite tracks yet</h3>
-          <p className="text-xs text-neutral-400 max-w-sm mb-6">
-            Click the heart icon on any song while listening to add it to your favorites.
-          </p>
-        </div>
-      )}
+        ) : favoriteSongs.length > 0 ? (
+          <div className="flex flex-col gap-1">
+            {favoriteSongs.map((song, idx) => (
+              <TrackRow
+                key={song.id}
+                song={song}
+                index={idx}
+                playlistContext={favoriteSongs}
+                onEditSong={onEditSong}
+                onAddToPlaylist={onAddToPlaylist}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-24 text-center px-4 glass-panel rounded-3xl border border-white/5 my-4">
+            <div className="w-16 h-16 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
+              <Heart className="w-8 h-8 text-red-400" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-1">No favorite tracks yet</h3>
+            <p className="text-xs text-neutral-400 max-w-sm mb-6">
+              Click the heart icon on any song while listening to add it to your favorites.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

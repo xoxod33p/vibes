@@ -81,9 +81,10 @@ export function AccountView({ onOpenAuth, onOpenSettings }: AccountViewProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-6 w-full max-w-2xl mx-auto h-full overflow-y-auto pb-6 pt-2">
+      {/* Scrollable content — only this inner div scrolls, not the whole page */}
+      <div className="flex flex-col gap-6 w-full max-w-2xl mx-auto flex-1 min-h-0 overflow-y-auto pb-6 pt-2">
         {/* User Card */}
-        <div className="glass-panel rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 border border-white/10 relative overflow-hidden">
+        <div className="glass-panel rounded-3xl p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 border border-white/10 relative overflow-hidden shrink-0">
           <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[var(--accent-glow)] blur-3xl opacity-20 pointer-events-none" />
 
           <Avatar className="w-24 h-24 border-2 border-[var(--accent-primary)]">
@@ -113,7 +114,7 @@ export function AccountView({ onOpenAuth, onOpenSettings }: AccountViewProps) {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 shrink-0">
           <div className="glass-panel rounded-2xl p-5 border border-white/5 flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <Heart className="w-6 h-6 text-red-400 fill-current" />
@@ -136,7 +137,7 @@ export function AccountView({ onOpenAuth, onOpenSettings }: AccountViewProps) {
         </div>
 
         {/* Danger Zone */}
-        <div className="glass-panel rounded-2xl p-5 md:p-6 border border-red-500/10 flex flex-col gap-4">
+        <div className="glass-panel rounded-2xl p-5 md:p-6 border border-red-500/10 flex flex-col gap-4 shrink-0">
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Trash2 className="w-4 h-4 text-red-400" />

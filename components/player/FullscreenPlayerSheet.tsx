@@ -57,12 +57,12 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
   const coverUrl = currentSong.cover ? `/api/covers/${encodeURIComponent(currentSong.cover)}` : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#07090e]/95 backdrop-blur-2xl text-white p-6 md:p-12 animate-in fade-in slide-in-from-bottom duration-300 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex flex-col landscape:flex-row bg-[#07090e]/95 backdrop-blur-2xl text-white p-6 landscape:p-4 md:p-12 animate-in fade-in slide-in-from-bottom duration-300 overflow-y-auto">
       {/* Top Ambient Glow Backdrop */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-[var(--accent-glow)] blur-3xl opacity-30 pointer-events-none" />
 
       {/* Top Bar Header */}
-      <div className="relative flex items-center justify-between w-full max-w-2xl mx-auto z-10 shrink-0">
+      <div className="relative flex items-center justify-between w-full max-w-2xl mx-auto z-10 shrink-0 landscape:hidden">
         <button
           onClick={() => setIsMobileFullscreen(false)}
           className="p-2.5 rounded-full glass-pill hover:bg-white/10 active:scale-90 transition-all text-neutral-300 hover:text-white"
@@ -88,7 +88,7 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
       </div>
 
       {/* Center: Full Album Cover Artwork Display */}
-      <div className="relative flex-1 flex flex-col items-center justify-center my-6 min-h-[260px] z-10 select-none">
+      <div className="relative landscape:w-2/5 landscape:flex-none flex flex-col items-center justify-center landscape:my-0 my-6 min-h-[260px] landscape:min-h-0 z-10 select-none">
         <div className="relative group">
           {/* Ambient Glow from Album Artwork */}
           {coverUrl && (
@@ -108,7 +108,7 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
           {/* Square Album Cover Card */}
           <div
             className={cn(
-              "relative w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-92 lg:h-92 aspect-square rounded-3xl overflow-hidden border border-white/10 shadow-2xl shadow-black/80 transition-transform duration-500",
+              "relative w-40 h-40 landscape:w-36 landscape:h-36 sm:w-72 sm:h-72 md:w-80 md:h-80 aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/80 transition-transform duration-500",
               isPlaying ? "scale-100" : "scale-95"
             )}
           >
@@ -130,7 +130,7 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
         </div>
 
         {/* Equalizer Visualizer Bars */}
-        <div className="flex items-center gap-1.5 mt-8 h-6">
+        <div className="flex items-center gap-1.5 mt-4 landscape:mt-2 h-6">
           <div className={cn("w-1 rounded-full bg-[var(--accent-primary)]", isPlaying ? "eq-bar-1" : "h-1")} />
           <div className={cn("w-1 rounded-full bg-[var(--accent-primary)]", isPlaying ? "eq-bar-2" : "h-1")} />
           <div className={cn("w-1 rounded-full bg-[var(--accent-secondary)]", isPlaying ? "eq-bar-3" : "h-1")} />
@@ -140,11 +140,11 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
       </div>
 
       {/* Bottom Section: Info, Scrubber, Controls */}
-      <div className="w-full max-w-xl mx-auto flex flex-col gap-5 z-10 shrink-0">
+      <div className="w-full landscape:flex-1 max-w-xl mx-auto flex flex-col gap-5 landscape:gap-2.5 landscape:justify-center z-10 shrink-0 landscape:shrink">
         {/* Track Title, Artist & Like Button */}
         <div className="flex items-center justify-between">
           <div className="min-w-0 pr-4">
-            <h2 className="text-xl md:text-2xl font-bold truncate text-white drop-shadow-md">
+            <h2 className="text-xl landscape:text-lg md:text-2xl font-bold truncate text-white drop-shadow-md">
               {currentSong.title}
             </h2>
             <p className="text-sm md:text-base text-neutral-400 truncate">
@@ -250,6 +250,15 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
             </button>
           ))}
         </div>
+
+        {/* Landscape close button — top bar is hidden in landscape */}
+        <button
+          onClick={() => setIsMobileFullscreen(false)}
+          className="landscape:flex hidden items-center justify-center gap-1.5 text-xs text-neutral-400 hover:text-white transition-colors mt-1"
+        >
+          <ChevronDown className="w-4 h-4" />
+          <span>Close Player</span>
+        </button>
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ interface MobileHeaderProps {
 
 export function MobileHeader({ onOpenYtdl, onOpenSettings }: MobileHeaderProps) {
   return (
-    <header className="md:hidden flex items-center justify-between px-4 py-3 glass-surface border-b border-white/5 sticky top-0 z-30 select-none">
+    <header className="md:hidden landscape:hidden flex items-center justify-between px-4 py-3 glass-surface border-b border-white/5 sticky top-0 z-30 select-none">
       <div className="w-16" />
 
       <div className="flex items-center justify-center">

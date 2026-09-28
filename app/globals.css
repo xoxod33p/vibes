@@ -214,3 +214,8 @@ input:-webkit-autofill:active {
   border-color: rgba(255, 255, 255, 0.15) !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* ─── Landscape Mobile Optimizations ─── */
+@media (orientation: landscape) and (max-height: 500px) {
+  ::-webkit-scrollbar { width: 3px; height: 3px; }
+}

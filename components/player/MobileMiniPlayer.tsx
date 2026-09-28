@@ -23,10 +23,10 @@ export function MobileMiniPlayer() {
   const coverUrl = currentSong.cover ? `/api/covers/${encodeURIComponent(currentSong.cover)}` : null;
 
   return (
-    <div className="md:hidden fixed bottom-18 left-3 right-3 z-40">
+    <div className="md:hidden fixed bottom-18 landscape:bottom-2 left-3 landscape:left-16 right-3 z-40">
       <div
         onClick={() => setIsMobileFullscreen(true)}
-        className="glass-panel rounded-2xl p-2 relative overflow-hidden shadow-2xl flex items-center gap-3 cursor-pointer border border-white/10 active:scale-[0.99] transition-transform"
+        className="glass-panel rounded-2xl p-2 landscape:py-1.5 relative overflow-hidden shadow-2xl flex items-center gap-3 cursor-pointer border border-white/10 active:scale-[0.99] transition-transform"
       >
         {/* Top Progress Indicator */}
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/10">

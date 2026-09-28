@@ -55,6 +55,9 @@ export async function POST(req: NextRequest) {
 
     const args = [
       "-f", "bestaudio/best",
+      "-x",
+      "--audio-format", "mp3",
+      "--audio-quality", "320K",
       "-o", outputTemplate,
       "--no-playlist",
       "--no-warnings",

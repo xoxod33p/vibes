@@ -1,8 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Settings, HardDrive, Trash2, Keyboard, Loader2, Palette, Check } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Settings,
+  HardDrive,
+  Trash2,
+  Keyboard,
+  Loader2,
+  Palette,
+  Check,
+  Radio,
+  AlertTriangle,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CacheInfo } from "@/lib/types";
 import { useAudio, ThemeId } from "@/lib/audio-context";
@@ -15,18 +31,27 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
-  const { theme, setTheme, user, allSongs, refreshSongs } = useAudio();
+  const {
+    theme,
+    setTheme,
+    user,
+    allSongs,
+    refreshSongs,
+    audioQuality,
+    setAudioQuality,
+  } = useAudio();
   const [cacheInfo, setCacheInfo] = useState<CacheInfo | null>(null);
   const [clearing, setClearing] = useState(false);
   const [clearingSongs, setClearingSongs] = useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
   const mySongsCount = user ? allSongs.filter((s) => s.user_id === user.id).length : 0;
 
-  const themes: { id: ThemeId; name: string; color: string }[] = [
-    { id: "theme-emerald", name: "Emerald Groove (Default)", color: "#10b981" },
-    { id: "theme-violet", name: "Midnight Violet", color: "#a855f7" },
-    { id: "theme-cyan", name: "Electric Cyan", color: "#06b6d4" },
-    { id: "theme-amber", name: "Cyberpunk Amber", color: "#f59e0b" },
+  const themes: { id: ThemeId; name: string; shortName: string; color: string }[] = [
+    { id: "theme-emerald", name: "Emerald Groove", shortName: "Emerald", color: "#10b981" },
+    { id: "theme-violet", name: "Midnight Violet", shortName: "Violet", color: "#a855f7" },
+    { id: "theme-cyan", name: "Electric Cyan", shortName: "Cyan", color: "#06b6d4" },
+    { id: "theme-amber", name: "Cyberpunk Amber", shortName: "Amber", color: "#f59e0b" },
   ];
 
   const fetchCacheInfo = async () => {
@@ -70,14 +95,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
   const handleClearMySongs = async () => {
     if (!user) return;
-    if (
-      !confirm(
-        "Are you sure you want to permanently delete all songs uploaded or downloaded by your account? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
-
+    setConfirmClearOpen(false);
     setClearingSongs(true);
     try {
       const res = await fetch("/api/songs", { method: "DELETE" });
@@ -103,145 +121,214 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-[var(--accent-primary)]" />
-            <span>Settings</span>
-          </DialogTitle>
-          <DialogDescription>
-            Appearance, audio cache, and keyboard shortcuts
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-[94vw] max-w-md max-h-[88vh] sm:max-h-[85vh] p-4 sm:p-6 rounded-3xl overflow-y-auto">
+          <DialogHeader className="pr-6">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Settings className="w-5 h-5 text-[var(--accent-primary)] shrink-0" />
+              <span>Settings</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-neutral-400">
+              Customize appearance, streaming quality, and storage
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="flex flex-col gap-5 py-2">
-          {/* Appearance & Color Themes */}
-          <div className="flex flex-col gap-2.5">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
-              <Palette className="w-4 h-4 text-[var(--accent-primary)]" />
-              <span>Theme & Accent Color</span>
-            </h4>
+          <div className="flex flex-col gap-4 sm:gap-5 py-1">
+            {/* Appearance & Color Themes */}
+            <div className="flex flex-col gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                <span>Theme & Accent Color</span>
+              </h4>
 
-            <div className="grid grid-cols-2 gap-2">
-              {themes.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTheme(t.id)}
-                  type="button"
-                  className={cn(
-                    "flex items-center gap-2.5 p-3 rounded-2xl border transition-all text-left cursor-pointer",
-                    theme === t.id
-                      ? "bg-white/10 border-[var(--accent-primary)] shadow-md text-white"
-                      : "bg-white/5 border-white/5 hover:border-white/10 text-neutral-400 hover:text-white"
-                  )}
-                >
-                  <span
-                    className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
-                    style={{ backgroundColor: t.color }}
-                  />
-                  <span className="text-xs font-medium truncate flex-1">{t.name}</span>
-                  {theme === t.id && (
-                    <Check className="w-3.5 h-3.5 text-[var(--accent-primary)] shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Storage & Cache */}
-          <div className="flex flex-col gap-2.5">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
-              <HardDrive className="w-4 h-4 text-[var(--accent-primary)]" />
-              <span>Storage Usage</span>
-            </h4>
-
-            <div className="glass-panel rounded-2xl p-4 flex flex-col gap-3 border border-white/5">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-neutral-400">Uploads Library</span>
-                <span className="font-mono text-white">
-                  {formatBytes(cacheInfo?.uploads?.size_bytes || 0)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-neutral-400">Transcoded Variants</span>
-                <span className="font-mono text-white">
-                  {cacheInfo?.transcode?.files || 0} files ({formatBytes(cacheInfo?.transcode?.size_bytes || 0)})
-                </span>
-              </div>
-
-              <div className="pt-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-2">
-                {user && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleClearMySongs}
-                    disabled={clearingSongs || mySongsCount === 0}
-                    className="gap-2 text-xs border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer"
-                  >
-                    {clearingSongs ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-3.5 h-3.5" />
+              <div className="grid grid-cols-2 gap-2">
+                {themes.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => setTheme(t.id)}
+                    type="button"
+                    className={cn(
+                      "flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl border transition-all text-left cursor-pointer",
+                      theme === t.id
+                        ? "bg-[var(--accent-primary)]/15 border-[var(--accent-primary)]/40 shadow-sm text-white"
+                        : "bg-white/5 border-white/5 hover:border-white/10 text-neutral-400 hover:text-white"
                     )}
-                    <span>Clear My Songs ({mySongsCount})</span>
-                  </Button>
-                )}
+                  >
+                    <span
+                      className="w-3.5 h-3.5 rounded-full border border-white/20 shrink-0"
+                      style={{ backgroundColor: t.color }}
+                    />
+                    <span className="text-xs font-medium truncate flex-1">
+                      <span className="sm:hidden">{t.shortName}</span>
+                      <span className="hidden sm:inline">{t.name}</span>
+                    </span>
+                    {theme === t.id && (
+                      <Check className="w-3.5 h-3.5 text-[var(--accent-primary)] shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleClearCache}
-                  disabled={clearing}
-                  className="gap-2 text-xs ml-auto cursor-pointer"
-                >
-                  {clearing ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
+            {/* Audio Quality Preferences */}
+            <div className="flex flex-col gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                <span>Streaming Quality</span>
+              </h4>
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "original", label: "Original", sub: "Lossless" },
+                  { id: "320", label: "320 kbps", sub: "High" },
+                  { id: "192", label: "192 kbps", sub: "Data Saver" },
+                ].map((q) => (
+                  <button
+                    key={q.id}
+                    onClick={() => setAudioQuality(q.id)}
+                    type="button"
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2 rounded-xl border transition-all cursor-pointer text-center",
+                      audioQuality === q.id
+                        ? "bg-[var(--accent-primary)]/15 border-[var(--accent-primary)]/40 text-white"
+                        : "bg-white/5 border-white/5 hover:border-white/10 text-neutral-400 hover:text-white"
+                    )}
+                  >
+                    <span className="text-xs font-semibold">{q.label}</span>
+                    <span className="text-[10px] text-neutral-500 mt-0.5">{q.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Storage & Cache */}
+            <div className="flex flex-col gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <HardDrive className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                <span>Storage Usage</span>
+              </h4>
+
+              <div className="glass-panel rounded-2xl p-3.5 sm:p-4 flex flex-col gap-2.5 border border-white/5">
+                <div className="flex justify-between items-center text-xs sm:text-sm">
+                  <span className="text-neutral-400">Uploads Library</span>
+                  <span className="font-mono text-white">
+                    {formatBytes(cacheInfo?.uploads?.size_bytes || 0)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-xs sm:text-sm">
+                  <span className="text-neutral-400">Transcode Cache</span>
+                  <span className="font-mono text-white">
+                    {cacheInfo?.transcode?.files || 0} files ({formatBytes(cacheInfo?.transcode?.size_bytes || 0)})
+                  </span>
+                </div>
+
+                <div className="pt-2.5 border-t border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                  {user && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmClearOpen(true)}
+                      disabled={clearingSongs || mySongsCount === 0}
+                      className="gap-1.5 text-xs border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer w-full sm:w-auto h-8"
+                    >
+                      {clearingSongs ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                      )}
+                      <span>Clear My Songs ({mySongsCount})</span>
+                    </Button>
                   )}
-                  <span>Clear Transcode Cache</span>
-                </Button>
+
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleClearCache}
+                    disabled={clearing}
+                    className="gap-1.5 text-xs cursor-pointer w-full sm:w-auto sm:ml-auto h-8"
+                  >
+                    {clearing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span>Clear Cache</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Keyboard Shortcuts Cheatsheet — Hidden on mobile phones where physical keyboard isn't used */}
+            <div className="hidden md:flex flex-col gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                <Keyboard className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                <span>Keyboard Shortcuts</span>
+              </h4>
+
+              <div className="glass-panel rounded-2xl p-3 border border-white/5 grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
+                  <span className="text-neutral-400">Play / Pause</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">Space</kbd>
+                </div>
+
+                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
+                  <span className="text-neutral-400">Seek ±5s</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">← / →</kbd>
+                </div>
+
+                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
+                  <span className="text-neutral-400">Like Track</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">L</kbd>
+                </div>
+
+                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
+                  <span className="text-neutral-400">Shuffle / Repeat</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">S / R</kbd>
+                </div>
               </div>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* Keyboard Shortcuts Cheatsheet */}
-          <div className="flex flex-col gap-2.5">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
-              <Keyboard className="w-4 h-4 text-[var(--accent-primary)]" />
-              <span>Keyboard Shortcuts</span>
-            </h4>
-
-            <div className="glass-panel rounded-2xl p-3 border border-white/5 grid grid-cols-2 gap-2 text-xs">
-              <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                <span className="text-neutral-400">Play / Pause</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white">Space</kbd>
+      {/* In-app Confirmation Dialog for Clear My Songs */}
+      <Dialog open={confirmClearOpen} onOpenChange={setConfirmClearOpen}>
+        <DialogContent className="w-[90vw] max-w-sm p-5 sm:p-6 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5 text-white text-base sm:text-lg">
+              <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-4 h-4 text-red-400" />
               </div>
+              Delete All My Songs
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs sm:text-sm pt-1">
+              Permanently delete all <strong className="text-white">{mySongsCount} track{mySongsCount !== 1 ? "s" : ""}</strong> belonging to your account. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
 
-              <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                <span className="text-neutral-400">Seek ±5s</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white">← / →</kbd>
-              </div>
-
-
-
-              <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                <span className="text-neutral-400">Like Track</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white">L</kbd>
-              </div>
-
-              <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                <span className="text-neutral-400">Shuffle / Repeat</span>
-                <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white">S / R</kbd>
-              </div>
-            </div>
+          <div className="flex items-center gap-2 pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={() => setConfirmClearOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="flex-1 gap-1.5 text-xs"
+              onClick={handleClearMySongs}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Yes, Delete All
+            </Button>
           </div>
-
-
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

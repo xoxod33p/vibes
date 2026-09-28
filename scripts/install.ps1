@@ -11,11 +11,12 @@ $ProjectDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BinDir = Join-Path $ProjectDir "bin"
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
-Write-Host "[1/4] Architecture: $env:PROCESSOR_ARCHITECTURE" -ForegroundColor Yellow
+Write-Host "[1/5] Architecture: $env:PROCESSOR_ARCHITECTURE" -ForegroundColor Yellow
 Write-Host ""
 
 # Install Node.js
-Write-Host "[2/4] Setting up Node.js..." -ForegroundColor Yellow
+Write-Host "[2/5] Setting up Node.js..." -ForegroundColor Yellow
+$NodeDir = Join-Path $BinDir "node"
 $NodePath = Get-Command node -ErrorAction SilentlyContinue
 if ($NodePath) {
     Write-Host "  Already installed: $(node -v) at $($NodePath.Source)" -ForegroundColor Green
@@ -24,7 +25,6 @@ if ($NodePath) {
     $NodeVersion = ($NodeIndex | Where-Object { $_.lts } | Select-Object -First 1).version.TrimStart("v")
     $NodeZip = "node-v$NodeVersion-win-x64.zip"
     $NodeUrl = "https://nodejs.org/dist/v$NodeVersion/$NodeZip"
-    $NodeDir = Join-Path $BinDir "node"
 
     Write-Host "  Downloading Node.js v$NodeVersion..." -ForegroundColor White
     Invoke-WebRequest -Uri $NodeUrl -OutFile (Join-Path $BinDir $NodeZip) -UseBasicParsing
@@ -39,7 +39,7 @@ if ($NodePath) {
 Write-Host ""
 
 # Install ffmpeg
-Write-Host "[3/4] Setting up ffmpeg..." -ForegroundColor Yellow
+Write-Host "[3/5] Setting up ffmpeg..." -ForegroundColor Yellow
 $FfmpegPath = Get-Command ffmpeg -ErrorAction SilentlyContinue
 if ($FfmpegPath) {
     Write-Host "  Already installed at $($FfmpegPath.Source)" -ForegroundColor Green
@@ -63,7 +63,7 @@ if ($FfmpegPath) {
 Write-Host ""
 
 # Install yt-dlp
-Write-Host "[4/4] Setting up yt-dlp..." -ForegroundColor Yellow
+Write-Host "[4/5] Setting up yt-dlp..." -ForegroundColor Yellow
 $YtdlpPath = Get-Command yt-dlp -ErrorAction SilentlyContinue
 if ($YtdlpPath) {
     Write-Host "  Already installed: $(yt-dlp --version) at $($YtdlpPath.Source)" -ForegroundColor Green
@@ -76,6 +76,29 @@ if ($YtdlpPath) {
     $env:PATH = "$BinDir;$env:PATH"
     $YtdlpVersion = & (Join-Path $BinDir "yt-dlp.exe") --version
     Write-Host "  Installed: $YtdlpVersion at $BinDir\yt-dlp.exe" -ForegroundColor Green
+}
+Write-Host ""
+
+# Add to system PATH permanently
+Write-Host "[5/5] Adding to system PATH..." -ForegroundColor Yellow
+$SystemPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
+$PathsToAdd = @($BinDir, $NodeDir)
+$PathChanged = $false
+
+foreach ($p in $PathsToAdd) {
+    if ($SystemPath -notlike "*$p*") {
+        $SystemPath = "$p;$SystemPath"
+        $PathChanged = $true
+        Write-Host "  Added: $p" -ForegroundColor Green
+    } else {
+        Write-Host "  Already in PATH: $p" -ForegroundColor Gray
+    }
+}
+
+if ($PathChanged) {
+    [Environment]::SetEnvironmentVariable("PATH", $SystemPath, "Machine")
+    $env:PATH = "$SystemPath"
+    Write-Host "  System PATH updated (persisted)" -ForegroundColor Green
 }
 Write-Host ""
 

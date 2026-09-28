@@ -23,11 +23,11 @@ case "$ARCH" in
         ;;
 esac
 
-echo "[1/4] Architecture: $ARCH ($ARCH_LABEL)"
+echo "[1/5] Architecture: $ARCH ($ARCH_LABEL)"
 echo ""
 
 # Install Node.js
-echo "[2/4] Setting up Node.js..."
+echo "[2/5] Setting up Node.js..."
 if command -v node &>/dev/null; then
     NODE_PATH="$(which node)"
     echo "  Already installed: $(node -v) at $NODE_PATH"
@@ -50,7 +50,7 @@ fi
 echo ""
 
 # Install ffmpeg
-echo "[3/4] Setting up ffmpeg..."
+echo "[3/5] Setting up ffmpeg..."
 if command -v ffmpeg &>/dev/null; then
     FFMPEG_PATH="$(which ffmpeg)"
     echo "  Already installed at $FFMPEG_PATH"
@@ -77,7 +77,7 @@ fi
 echo ""
 
 # Install yt-dlp
-echo "[4/4] Setting up yt-dlp..."
+echo "[4/5] Setting up yt-dlp..."
 if command -v yt-dlp &>/dev/null; then
     YTDLP_PATH="$(which yt-dlp)"
     echo "  Already installed: $(yt-dlp --version) at $YTDLP_PATH"
@@ -95,6 +95,22 @@ else
     YTDLP_PATH="$BIN_DIR/yt-dlp"
     echo "  Installed: $($BIN_DIR/yt-dlp --version) at $YTDLP_PATH"
 fi
+echo ""
+
+# Add to PATH permanently
+echo "[5/5] Adding to system PATH..."
+NODE_BIN_DIR="$BIN_DIR/node/bin"
+PROFILE_SCRIPT="/etc/profile.d/vibes.sh"
+
+cat > "$PROFILE_SCRIPT" <<PATHEOF
+export PATH="$BIN_DIR:$NODE_BIN_DIR:\$PATH"
+PATHEOF
+chmod +x "$PROFILE_SCRIPT"
+
+export PATH="$BIN_DIR:$NODE_BIN_DIR:$PATH"
+echo "  Created $PROFILE_SCRIPT (persisted for all users)"
+echo "  Added: $BIN_DIR"
+echo "  Added: $NODE_BIN_DIR"
 echo ""
 
 # Install npm dependencies

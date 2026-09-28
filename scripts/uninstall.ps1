@@ -9,13 +9,9 @@ Write-Host ""
 
 $ProjectDir = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $BinDir = Join-Path $ProjectDir "bin"
+$NodeDir = Join-Path $BinDir "node"
 
-if (-not (Test-Path $BinDir)) {
-    Write-Host "Nothing to uninstall - bin\ directory not found." -ForegroundColor Yellow
-    exit 0
-}
-
-Write-Host "[1/3] Removing yt-dlp..." -ForegroundColor Yellow
+Write-Host "[1/4] Removing yt-dlp..." -ForegroundColor Yellow
 $YtdlpFile = Join-Path $BinDir "yt-dlp.exe"
 if (Test-Path $YtdlpFile) {
     Remove-Item $YtdlpFile -Force
@@ -25,7 +21,7 @@ if (Test-Path $YtdlpFile) {
 }
 Write-Host ""
 
-Write-Host "[2/3] Removing ffmpeg..." -ForegroundColor Yellow
+Write-Host "[2/4] Removing ffmpeg..." -ForegroundColor Yellow
 foreach ($f in @("ffmpeg.exe", "ffprobe.exe")) {
     $FilePath = Join-Path $BinDir $f
     if (Test-Path $FilePath) {
@@ -35,8 +31,7 @@ foreach ($f in @("ffmpeg.exe", "ffprobe.exe")) {
 }
 Write-Host ""
 
-Write-Host "[3/3] Removing Node.js..." -ForegroundColor Yellow
-$NodeDir = Join-Path $BinDir "node"
+Write-Host "[3/4] Removing Node.js..." -ForegroundColor Yellow
 if (Test-Path $NodeDir) {
     Remove-Item -Recurse -Force $NodeDir
     Write-Host "  Removed $NodeDir\" -ForegroundColor Green
@@ -45,11 +40,37 @@ if (Test-Path $NodeDir) {
 }
 Write-Host ""
 
+Write-Host "[4/4] Removing from system PATH..." -ForegroundColor Yellow
+$SystemPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
+$PathsToRemove = @($BinDir, $NodeDir)
+$PathChanged = $false
+
+foreach ($p in $PathsToRemove) {
+    if ($SystemPath -like "*$p*") {
+        $SystemPath = ($SystemPath -split ";" | Where-Object { $_ -ne $p }) -join ";"
+        $PathChanged = $true
+        Write-Host "  Removed: $p" -ForegroundColor Green
+    } else {
+        Write-Host "  Not in PATH: $p" -ForegroundColor Gray
+    }
+}
+
+if ($PathChanged) {
+    [Environment]::SetEnvironmentVariable("PATH", $SystemPath, "Machine")
+    $env:PATH = $SystemPath
+    Write-Host "  System PATH updated" -ForegroundColor Green
+}
+Write-Host ""
+
 # Clean up empty bin dir
-$Remaining = Get-ChildItem $BinDir -ErrorAction SilentlyContinue
-if (-not $Remaining) {
-    Remove-Item $BinDir -Force
-    Write-Host "Removed empty bin\ directory" -ForegroundColor Green
+if (Test-Path $BinDir) {
+    $Remaining = Get-ChildItem $BinDir -ErrorAction SilentlyContinue
+    if (-not $Remaining) {
+        Remove-Item $BinDir -Force
+        Write-Host "Removed empty bin\ directory" -ForegroundColor Green
+    } else {
+        Write-Host "bin\ not empty, left in place" -ForegroundColor Gray
+    }
 }
 
 Write-Host ""
@@ -58,5 +79,8 @@ Write-Host "  Uninstall complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Note: node_modules\ and .env" -ForegroundColor White
 Write-Host "  were left untouched." -ForegroundColor White
+Write-Host ""
+Write-Host "  Restart your terminal for" -ForegroundColor White
+Write-Host "  PATH changes to take effect." -ForegroundColor White
 Write-Host "================================" -ForegroundColor Cyan
 Write-Host ""

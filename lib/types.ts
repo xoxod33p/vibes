@@ -41,3 +41,16 @@ export interface CacheInfo {
   };
   api_cache_entries: number;
 }
+
+export interface WsDownloadProgress {
+  songId: string;
+  title: string;
+  artist?: string;
+  status: "pending" | "downloading" | "transcoding" | "ready" | "error";
+  progress: number; // 0 - 100
+  speed?: string;
+  eta?: string;
+  totalSize?: string;
+  error?: string;
+}
+

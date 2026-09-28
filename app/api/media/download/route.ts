@@ -1,14 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { enqueueDownload, queueLength } from "@/lib/download-queue";
+import {
+  broadcastDownloadProgress,
+  broadcastDownloadComplete,
+  broadcastDownloadError,
+} from "@/lib/ws-bus";
 
-const execFileAsync = promisify(execFile);
+export const dynamic = "force-dynamic";
 
 // Run the actual yt-dlp download in the background and update DB when done
 async function runBackgroundDownload(opts: {
@@ -27,6 +31,15 @@ async function runBackgroundDownload(opts: {
   const { songId, tempStem, target, title, artist, album, duration, coverUrl, isPlaylist, playlistId, userId } = opts;
   const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
+  // Initial broadcast
+  broadcastDownloadProgress({
+    songId,
+    title,
+    artist,
+    status: "downloading",
+    progress: 0,
+  });
+
   const args = [
     "-f", "bestaudio/best",
     "-x",
@@ -36,6 +49,8 @@ async function runBackgroundDownload(opts: {
     "--no-playlist",
     "--no-warnings",
     "--print-json",
+    "--newline",
+    "--progress-template", "VIBES_PROG:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_estimate_str)s",
     "--concurrent-fragments", "5",
   ];
 
@@ -58,49 +73,100 @@ async function runBackgroundDownload(opts: {
   ].join(process.platform === "win32" ? ";" : ":");
 
   let info: Record<string, unknown> = {};
-  try {
-    const res = await execFileAsync(getYtdlpPath(), args, {
-      timeout: 180000,
-      env: { ...process.env, PATH: extendedPath },
-    });
+  let stdoutData = "";
+  let stderrData = "";
 
-    try {
-      const lines = res.stdout.trim().split("\n");
-      const lastJsonLine = lines.findLast((l) => l.startsWith("{") && l.endsWith("}")) || lines[lines.length - 1];
-      info = JSON.parse(lastJsonLine);
-    } catch {
-      console.warn("[download:bg] Could not parse yt-dlp JSON output");
+  const child = spawn(getYtdlpPath(), args, {
+    env: { ...process.env, PATH: extendedPath },
+  });
+
+  child.stdout.on("data", (chunk: Buffer) => {
+    const text = chunk.toString();
+    stdoutData += text;
+
+    const lines = text.split(/\r?\n/);
+    for (const line of lines) {
+      if (line.startsWith("VIBES_PROG:")) {
+        const parts = line.slice("VIBES_PROG:".length).split("|");
+        const rawPercent = (parts[0] || "").replace("%", "").trim();
+        const percent = parseFloat(rawPercent);
+        const speed = (parts[1] || "").trim();
+        const eta = (parts[2] || "").trim();
+        const totalSize = (parts[3] || "").trim();
+
+        if (!isNaN(percent)) {
+          broadcastDownloadProgress({
+            songId,
+            title,
+            artist,
+            status: "downloading",
+            progress: Math.min(Math.max(percent, 0), 99),
+            speed: speed || undefined,
+            eta: eta || undefined,
+            totalSize: totalSize || undefined,
+          });
+        }
+      } else if (line.includes("[ExtractAudio]") || line.includes("[PostProcessor]")) {
+        broadcastDownloadProgress({
+          songId,
+          title,
+          artist,
+          status: "transcoding",
+          progress: 95,
+          speed: "Converting to audio...",
+        });
+      }
     }
-  } catch (execErr: unknown) {
-    const execObj = execErr as { message?: string; stderr?: string };
-    const errorMsg = execObj.stderr?.trim() || execObj.message || String(execErr);
-    console.error("[download:bg] yt-dlp error:", errorMsg.slice(0, 300));
+  });
 
-    // Mark song as error in DB
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderrData += chunk.toString();
+  });
+
+  const exitCode = await new Promise<number>((resolve) => {
+    child.on("close", resolve);
+    child.on("error", (err) => {
+      stderrData += " " + err.message;
+      resolve(1);
+    });
+  });
+
+  if (exitCode !== 0) {
+    const errorMsg = stderrData.trim().slice(0, 300) || "yt-dlp process failed";
+    console.error("[download:bg] yt-dlp error:", errorMsg);
+
     try {
       db.prepare("UPDATE songs SET status = 'error' WHERE id = ?").run(songId);
-    } catch (dbErr) {
-      console.error("[download:bg] Failed to update error status:", dbErr);
-    }
+    } catch {}
+
+    broadcastDownloadError(songId, errorMsg);
     return;
   }
 
-  // Locate and rename the downloaded file
+  // Parse JSON info from stdout
+  try {
+    const lines = stdoutData.trim().split("\n");
+    const lastJsonLine = lines.findLast((l) => l.startsWith("{") && l.endsWith("}")) || "";
+    if (lastJsonLine) {
+      info = JSON.parse(lastJsonLine);
+    }
+  } catch {
+    console.warn("[download:bg] Could not parse yt-dlp JSON output");
+  }
+
+  // Locate downloaded file
   const files = fs.readdirSync(UPLOAD_FOLDER);
   const downloadedName = files.find((f) => f.startsWith(tempStem) && !f.endsWith(".pending"));
   if (!downloadedName) {
     console.error("[download:bg] Downloaded file not found for stem:", tempStem);
     db.prepare("UPDATE songs SET status = 'error' WHERE id = ?").run(songId);
+    broadcastDownloadError(songId, "Audio file not saved to disk");
     return;
   }
 
-  // Use the real downloaded filename (keep actual extension - m4a, opus, webm, etc.)
-  const downloadedPath = path.join(UPLOAD_FOLDER, downloadedName);
-  const finalFilename = downloadedName; // keep as-is, don't force .mp3
-  const finalPath = downloadedPath;
-  void finalPath; // no rename needed
+  const finalFilename = downloadedName;
 
-  // Resolve final metadata (yt-dlp info overrides if user didn't provide)
+  // Resolve metadata
   const finalTitle = title !== "Downloading..." ? title : ((info.title as string) || "Audio Track");
   const finalArtist = artist !== "Please wait" ? artist : (
     (info.artist as string) || (info.uploader as string) || (info.channel as string) || "Unknown Artist"
@@ -136,7 +202,7 @@ async function runBackgroundDownload(opts: {
     }
   }
 
-  // Update DB record with final data
+  // Update DB record
   try {
     db.prepare(`
       UPDATE songs
@@ -160,15 +226,28 @@ async function runBackgroundDownload(opts: {
       }
     }
 
+    const songRecord = {
+      id: songId,
+      title: finalTitle,
+      artist: finalArtist,
+      album: finalAlbum,
+      duration: finalDuration,
+      filename: finalFilename,
+      cover: coverFilename,
+      status: "ready",
+    };
+
+    broadcastDownloadComplete(songId, songRecord);
     console.log(`[download:bg] Done: "${finalTitle}" (${songId})`);
   } catch (dbErr) {
     console.error("[download:bg] Failed to update song record:", dbErr);
+    broadcastDownloadError(songId, "Failed to update database");
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getCurrentUser();
+    const session = await getCurrentUser(req);
     if (!session?.userId) {
       return NextResponse.json(
         { error: "Please sign in or create an account to download music" },
@@ -205,6 +284,14 @@ export async function POST(req: NextRequest) {
       INSERT INTO songs (id, title, artist, album, duration, filename, cover, user_id, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
     `).run(songId, title, artist, album, duration, pendingFilename, null, session.userId);
+
+    broadcastDownloadProgress({
+      songId,
+      title,
+      artist,
+      status: "pending",
+      progress: 0,
+    });
 
     // Add to sequential download queue (one at a time)
     const position = enqueueDownload(() =>

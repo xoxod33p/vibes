@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
-import { Song, Playlist, User } from "./types";
+import { Song, Playlist, User, WsDownloadProgress } from "./types";
 import { toast } from "sonner";
 
 export type RepeatMode = "off" | "all" | "one";
@@ -25,6 +25,8 @@ interface AudioContextType {
   allSongs: Song[];
   playlists: Playlist[];
   isLoadingSongs: boolean;
+  activeDownloads: Record<string, WsDownloadProgress>;
+  isWsConnected: boolean;
   isMobileFullscreen: boolean;
   setIsMobileFullscreen: (open: boolean) => void;
   playSong: (song: Song, queueList?: Song[]) => void;
@@ -74,6 +76,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoadingSongs, setIsLoadingSongs] = useState<boolean>(true);
   const [isMobileFullscreen, setIsMobileFullscreen] = useState<boolean>(false);
+  const [activeDownloads, setActiveDownloads] = useState<Record<string, WsDownloadProgress>>({});
+  const [isWsConnected, setIsWsConnected] = useState<boolean>(false);
 
   // Initialize Audio element
   useEffect(() => {
@@ -238,8 +242,117 @@ function getAuthHeaders(): Record<string, string> {
     refreshUser();
   }, [refreshSongs, refreshPlaylists, refreshUser]);
 
-  // Poll for pending downloads every 3s and refresh when they complete
+  // Real-time WebSocket connection for instant download progress and notifications
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    let isDisposed = false;
+
+    function connect() {
+      if (isDisposed) return;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+
+      try {
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          setIsWsConnected(true);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "sync" && msg.data?.downloads) {
+              const map: Record<string, WsDownloadProgress> = {};
+              for (const dl of msg.data.downloads) {
+                map[dl.songId] = dl;
+              }
+              setActiveDownloads(map);
+            } else if (msg.type === "download:progress" && msg.data) {
+              const dl: WsDownloadProgress = msg.data;
+              setActiveDownloads((prev) => ({
+                ...prev,
+                [dl.songId]: dl,
+              }));
+              if (dl.status === "ready" || dl.status === "error") {
+                if (dl.status === "ready") {
+                  refreshSongs();
+                  refreshPlaylists();
+                }
+                setTimeout(() => {
+                  setActiveDownloads((prev) => {
+                    const next = { ...prev };
+                    delete next[dl.songId];
+                    return next;
+                  });
+                }, 4000);
+              }
+            } else if (msg.type === "download:complete") {
+              const { songId, song } = msg.data;
+              toast.success(`"${song?.title || "Track"}" is ready to play!`);
+              refreshSongs();
+              refreshPlaylists();
+              setTimeout(() => {
+                setActiveDownloads((prev) => {
+                  const next = { ...prev };
+                  delete next[songId];
+                  return next;
+                });
+              }, 3000);
+            } else if (msg.type === "download:error") {
+              toast.error(`Download failed: ${msg.data.error?.slice(0, 80) || "Unknown error"}`);
+              refreshSongs();
+              setTimeout(() => {
+                setActiveDownloads((prev) => {
+                  const next = { ...prev };
+                  delete next[msg.data.songId];
+                  return next;
+                });
+              }, 4000);
+            } else if (msg.type === "songs:updated") {
+              refreshSongs();
+            } else if (msg.type === "playlists:updated") {
+              refreshPlaylists();
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          setIsWsConnected(false);
+          if (!isDisposed) {
+            reconnectTimeout = setTimeout(connect, 3000);
+          }
+        };
+
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch {
+        if (!isDisposed) {
+          reconnectTimeout = setTimeout(connect, 3000);
+        }
+      }
+    }
+
+    connect();
+
+    return () => {
+      isDisposed = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, [refreshSongs, refreshPlaylists]);
+
+  // Fallback: poll for pending downloads only if WebSocket is disconnected
+  useEffect(() => {
+    if (isWsConnected) return; // WebSocket provides instant real-time updates!
+
     const interval = setInterval(async () => {
       const pendingSongs = allSongs.filter((s) => s.status === "pending");
       if (pendingSongs.length === 0) return;
@@ -265,7 +378,7 @@ function getAuthHeaders(): Record<string, string> {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [allSongs, refreshSongs, refreshPlaylists]);
+  }, [allSongs, refreshSongs, refreshPlaylists, isWsConnected]);
 
 
   // Set audio source and play
@@ -577,6 +690,8 @@ function getAuthHeaders(): Record<string, string> {
         allSongs,
         playlists,
         isLoadingSongs,
+        activeDownloads,
+        isWsConnected,
         isMobileFullscreen,
         setIsMobileFullscreen,
         playSong,

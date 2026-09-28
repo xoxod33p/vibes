@@ -8,6 +8,7 @@ import { Song } from "@/lib/types";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { DownloadProgressWidget } from "@/components/layout/DownloadProgressWidget";
 
 // Player components
 import { DesktopNowPlaying } from "@/components/player/DesktopNowPlaying";
@@ -169,6 +170,7 @@ export default function HomePage() {
       />
       <QueueDrawer open={queueOpen} onOpenChange={setQueueOpen} />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <DownloadProgressWidget />
     </div>
   );
 }

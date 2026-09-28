@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath } from "@/lib/db";
+import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 const execFileAsync = promisify(execFile);
@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     let stdout = "";
     try {
-      const res = await execFileAsync("yt-dlp", args, {
+      const res = await execFileAsync(getYtdlpPath(), args, {
         timeout: 120000,
         env: {
           ...process.env,

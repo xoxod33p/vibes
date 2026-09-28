@@ -86,6 +86,18 @@ if (globalThis.__vibes_db) {
 }
 
 export function getCookiesPath(): string | null {
+  // Check env var first
+  const envPath = process.env.COOKIES_PATH;
+  if (envPath) {
+    try {
+      if (fs.existsSync(envPath)) {
+        const stat = fs.statSync(envPath);
+        if (stat.isFile() && stat.size > 0) return envPath;
+      }
+    } catch {}
+    console.warn(`[getCookiesPath] COOKIES_PATH="${envPath}" not found or empty, falling back to auto-detect`);
+  }
+
   const candidates = [
     path.join(BASE_DIR, "cookies.txt"),
     "/home/admin/vibes/cookies.txt",
@@ -111,6 +123,11 @@ export function getCookiesPath(): string | null {
     } catch {}
   }
   return null;
+}
+
+/** Returns the yt-dlp binary path from YTDLP_PATH env, or defaults to "yt-dlp". */
+export function getYtdlpPath(): string {
+  return process.env.YTDLP_PATH || "yt-dlp";
 }
 
 export const db = dbInstance;

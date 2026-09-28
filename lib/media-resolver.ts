@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { BASE_DIR, getCookiesPath } from "@/lib/db";
+import { BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
 
 const execFileAsync = promisify(execFile);
 
@@ -191,7 +191,7 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
 
   let stdout = "";
   try {
-    const res = await execFileAsync("yt-dlp", args, {
+    const res = await execFileAsync(getYtdlpPath(), args, {
       timeout: 60000,
       env: {
         ...process.env,

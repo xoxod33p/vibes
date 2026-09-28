@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath } from "@/lib/db";
+import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { enqueueDownload, queueLength } from "@/lib/download-queue";
 
@@ -59,7 +59,7 @@ async function runBackgroundDownload(opts: {
 
   let info: Record<string, unknown> = {};
   try {
-    const res = await execFileAsync("yt-dlp", args, {
+    const res = await execFileAsync(getYtdlpPath(), args, {
       timeout: 180000,
       env: { ...process.env, PATH: extendedPath },
     });

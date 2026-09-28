@@ -89,31 +89,25 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
 
       {/* Center: Full Album Cover Artwork Display */}
       <div className="relative landscape:w-2/5 landscape:flex-none flex flex-col items-center justify-center landscape:my-0 my-6 min-h-[260px] landscape:min-h-0 z-10 select-none">
-        <div className="relative group">
-          {/* Ambient Glow from Album Artwork */}
-          {coverUrl && (
-            <div
-              className={cn(
-                "absolute -inset-4 rounded-3xl blur-3xl transition-opacity duration-700 pointer-events-none -z-10",
-                isPlaying ? "opacity-60" : "opacity-25"
-              )}
-              style={{
-                backgroundImage: `url(${coverUrl})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            />
-          )}
-
-          {/* Square Album Cover Card */}
+        <div className="relative">
+          {/* Smooth Circular Ambient Glow — eliminates square background artifacts */}
           <div
             className={cn(
-              "relative w-40 h-40 landscape:w-36 landscape:h-36 sm:w-72 sm:h-72 md:w-80 md:h-80 aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/80 transition-transform duration-500",
+              "absolute -inset-2 rounded-full bg-[var(--accent-glow)] blur-3xl transition-all duration-700 pointer-events-none",
+              isPlaying ? "opacity-70 scale-110" : "opacity-25 scale-95"
+            )}
+          />
+
+          {/* Album Cover Card */}
+          <div
+            className={cn(
+              "relative w-64 h-64 landscape:w-36 landscape:h-36 sm:w-72 sm:h-72 md:w-80 md:h-80 aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/80 transition-transform duration-500 bg-[#121622]",
               isPlaying ? "scale-100" : "scale-95"
             )}
           >
             {coverUrl ? (
               <Image
+                key={currentSong.id}
                 src={coverUrl}
                 alt={currentSong.title}
                 fill

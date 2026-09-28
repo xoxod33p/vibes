@@ -29,6 +29,10 @@ if (globalThis.__vibes_db) {
   dbInstance = new DatabaseSync(DB_PATH);
   globalThis.__vibes_db = dbInstance;
 
+  // WAL mode + busy timeout to handle concurrent access (next build workers)
+  dbInstance.exec("PRAGMA journal_mode = WAL");
+  dbInstance.exec("PRAGMA busy_timeout = 5000");
+
   // Enable foreign key enforcement (SQLite has them off by default)
   dbInstance.exec("PRAGMA foreign_keys = ON");
 

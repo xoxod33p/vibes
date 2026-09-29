@@ -41,14 +41,22 @@ echo ""
 echo "[4/4] Removing PATH entries..."
 PROFILE_SCRIPT="/etc/profile.d/vibes.sh"
 if [ -f "$PROFILE_SCRIPT" ]; then
-    rm "$PROFILE_SCRIPT"
-    echo "  Removed $PROFILE_SCRIPT"
-else
-    echo "  No profile script found, skipping"
+    if [ "$EUID" -eq 0 ]; then
+        rm "$PROFILE_SCRIPT"
+        echo "  Removed $PROFILE_SCRIPT"
+    else
+        echo "  Cannot remove $PROFILE_SCRIPT (requires root)"
+    fi
 fi
+
+for rc in "$HOME/.bashrc" "$HOME/.profile"; do
+    if [ -f "$rc" ] && grep -q "$BIN_DIR" "$rc" 2>/dev/null; then
+        sed -i "\|$BIN_DIR|d" "$rc"
+        echo "  Cleaned PATH from $rc"
+    fi
+done
 echo ""
 
-# Clean up empty bin dir
 if [ -d "$BIN_DIR" ]; then
     rmdir "$BIN_DIR" 2>/dev/null && echo "Removed empty bin/ directory" || echo "bin/ not empty, left in place"
 fi
@@ -61,5 +69,5 @@ echo "  Note: node_modules/ and .env"
 echo "  were left untouched."
 echo ""
 echo "  Restart your shell or run:"
-echo "    source /etc/profile"
+echo "    source ~/.bashrc"
 echo "================================"

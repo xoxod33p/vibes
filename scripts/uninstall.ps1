@@ -41,28 +41,37 @@ if (Test-Path $NodeDir) {
 Write-Host ""
 
 Write-Host "[4/4] Removing from system PATH..." -ForegroundColor Yellow
-$SystemPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
 $PathsToRemove = @($BinDir, $NodeDir)
-$PathChanged = $false
 
-foreach ($p in $PathsToRemove) {
-    if ($SystemPath -like "*$p*") {
-        $SystemPath = ($SystemPath -split ";" | Where-Object { $_ -ne $p }) -join ";"
-        $PathChanged = $true
-        Write-Host "  Removed: $p" -ForegroundColor Green
-    } else {
-        Write-Host "  Not in PATH: $p" -ForegroundColor Gray
-    }
+$IsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+$Scopes = if ($IsAdmin) { @("Machine", "User") } else { @("User") }
+
+foreach ($scope in $Scopes) {
+    try {
+        $ScopePath = [Environment]::GetEnvironmentVariable("PATH", $scope)
+        if ($ScopePath) {
+            $ScopeChanged = $false
+            foreach ($p in $PathsToRemove) {
+                if ($ScopePath -like "*$p*") {
+                    $ScopePath = ($ScopePath -split ";" | Where-Object { $_ -ne $p -and $_ -ne "" }) -join ";"
+                    $ScopeChanged = $true
+                    Write-Host "  Removed from $scope PATH: $p" -ForegroundColor Green
+                }
+            }
+            if ($ScopeChanged) {
+                [Environment]::SetEnvironmentVariable("PATH", $ScopePath, $scope)
+            }
+        }
+    } catch {}
 }
 
-if ($PathChanged) {
-    [Environment]::SetEnvironmentVariable("PATH", $SystemPath, "Machine")
-    $env:PATH = $SystemPath
-    Write-Host "  System PATH updated" -ForegroundColor Green
+foreach ($p in $PathsToRemove) {
+    if ($env:PATH -like "*$p*") {
+        $env:PATH = ($env:PATH -split ";" | Where-Object { $_ -ne $p -and $_ -ne "" }) -join ";"
+    }
 }
 Write-Host ""
 
-# Clean up empty bin dir
 if (Test-Path $BinDir) {
     $Remaining = Get-ChildItem $BinDir -ErrorAction SilentlyContinue
     if (-not $Remaining) {

@@ -14,7 +14,6 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 Write-Host "[1/5] Architecture: $env:PROCESSOR_ARCHITECTURE" -ForegroundColor Yellow
 Write-Host ""
 
-# Install Node.js
 Write-Host "[2/5] Setting up Node.js..." -ForegroundColor Yellow
 $NodeDir = Join-Path $BinDir "node"
 $NodePath = Get-Command node -ErrorAction SilentlyContinue
@@ -38,7 +37,6 @@ if ($NodePath) {
 }
 Write-Host ""
 
-# Install ffmpeg
 Write-Host "[3/5] Setting up ffmpeg..." -ForegroundColor Yellow
 $FfmpegPath = Get-Command ffmpeg -ErrorAction SilentlyContinue
 if ($FfmpegPath) {
@@ -62,7 +60,6 @@ if ($FfmpegPath) {
 }
 Write-Host ""
 
-# Install yt-dlp
 Write-Host "[4/5] Setting up yt-dlp..." -ForegroundColor Yellow
 $YtdlpPath = Get-Command yt-dlp -ErrorAction SilentlyContinue
 if ($YtdlpPath) {
@@ -79,36 +76,62 @@ if ($YtdlpPath) {
 }
 Write-Host ""
 
-# Add to system PATH permanently
-Write-Host "[5/5] Adding to system PATH..." -ForegroundColor Yellow
-$SystemPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
-$PathsToAdd = @($BinDir, $NodeDir)
-$PathChanged = $false
-
-foreach ($p in $PathsToAdd) {
-    if ($SystemPath -notlike "*$p*") {
-        $SystemPath = "$p;$SystemPath"
-        $PathChanged = $true
-        Write-Host "  Added: $p" -ForegroundColor Green
-    } else {
-        Write-Host "  Already in PATH: $p" -ForegroundColor Gray
-    }
+Write-Host "[5/5] Adding to PATH..." -ForegroundColor Yellow
+$PathsToAdd = @()
+if (-not $FfmpegPath -or -not $YtdlpPath) {
+    $PathsToAdd += $BinDir
+}
+if (-not $NodePath) {
+    $PathsToAdd += $NodeDir
 }
 
-if ($PathChanged) {
-    [Environment]::SetEnvironmentVariable("PATH", $SystemPath, "Machine")
-    $env:PATH = "$SystemPath"
-    Write-Host "  System PATH updated (persisted)" -ForegroundColor Green
+if ($PathsToAdd.Count -eq 0) {
+    Write-Host "  All components already installed and in PATH, skipping" -ForegroundColor Green
+} else {
+    $IsAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    $TargetScope = if ($IsAdmin) { "Machine" } else { "User" }
+
+    $TargetPath = [Environment]::GetEnvironmentVariable("PATH", $TargetScope)
+    if ($null -eq $TargetPath) { $TargetPath = "" }
+    $PathChanged = $false
+
+    foreach ($p in $PathsToAdd) {
+        if ($TargetPath -notlike "*$p*") {
+            $TargetPath = if ($TargetPath) { "$p;$TargetPath" } else { $p }
+            $PathChanged = $true
+            Write-Host "  Added: $p" -ForegroundColor Green
+        } else {
+            Write-Host "  Already in PATH: $p" -ForegroundColor Gray
+        }
+        if ($env:PATH -notlike "*$p*") {
+            $env:PATH = "$p;$env:PATH"
+        }
+    }
+
+    if ($PathChanged) {
+        try {
+            [Environment]::SetEnvironmentVariable("PATH", $TargetPath, $TargetScope)
+            Write-Host "  $TargetScope PATH updated (persisted)" -ForegroundColor Green
+        } catch {
+            $UserPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+            if ($null -eq $UserPath) { $UserPath = "" }
+            foreach ($p in $PathsToAdd) {
+                if ($UserPath -notlike "*$p*") {
+                    $UserPath = if ($UserPath) { "$p;$UserPath" } else { $p }
+                }
+            }
+            [Environment]::SetEnvironmentVariable("PATH", $UserPath, "User")
+            Write-Host "  User PATH updated (persisted)" -ForegroundColor Green
+        }
+    }
 }
 Write-Host ""
 
-# Install npm dependencies
 Write-Host "[+] Installing npm dependencies..." -ForegroundColor Yellow
 Push-Location $ProjectDir
 try { npm install } finally { Pop-Location }
 Write-Host ""
 
-# Setup .env
 $EnvFile = Join-Path $ProjectDir ".env"
 if (-not (Test-Path $EnvFile)) {
     $YtdlpFinal = if ($YtdlpPath) { $YtdlpPath.Source } else { Join-Path $BinDir "yt-dlp.exe" }
@@ -116,9 +139,23 @@ if (-not (Test-Path $EnvFile)) {
     $Secret = -join ((1..64) | ForEach-Object { [char](Get-Random -Minimum 33 -Maximum 126) })
 
     @"
+PORT=5000
+HOSTNAME=0.0.0.0
+NODE_ENV=development
 SESSION_SECRET=$Secret
+COOKIE_SECURE=false
 YTDLP_PATH=$YtdlpFinal
 COOKIES_PATH=$CookiesFinal
+FIREBASE_SERVICE_ACCOUNT_KEY=
+FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
 "@ | Set-Content $EnvFile -Encoding UTF8
 
     Write-Host "[+] Created .env with auto-detected paths" -ForegroundColor Yellow
@@ -128,7 +165,8 @@ COOKIES_PATH=$CookiesFinal
 
 $FinalYtdlp = if ($YtdlpPath) { $YtdlpPath.Source } else { "$BinDir\yt-dlp.exe" }
 $FinalFfmpeg = if ($FfmpegPath) { $FfmpegPath.Source } else { "$BinDir\ffmpeg.exe" }
-$FinalNode = (Get-Command node -ErrorAction SilentlyContinue)?.Source ?? "not found"
+$NodeCheck = Get-Command node -ErrorAction SilentlyContinue
+$FinalNode = if ($NodeCheck) { $NodeCheck.Source } else { "not found" }
 
 Write-Host ""
 Write-Host "================================" -ForegroundColor Cyan

@@ -60,7 +60,7 @@ function initFirestore(): Firestore {
         if (!isBuild) {
           console.warn("[firebase] Warning: No Firebase Service Account JSON provided.");
         }
-        initializeApp({ projectId: "vibes-5f0a8" });
+        initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "vibes-app" });
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);

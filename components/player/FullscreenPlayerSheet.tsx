@@ -57,7 +57,7 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
   const coverUrl = currentSong.cover ? `/api/covers/${encodeURIComponent(currentSong.cover)}` : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col landscape:flex-row bg-[#07090e]/95 backdrop-blur-2xl text-white p-6 landscape:p-4 md:p-12 animate-in fade-in slide-in-from-bottom duration-300 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex flex-col justify-between landscape:flex-row bg-[#07090e]/95 backdrop-blur-2xl text-white p-6 landscape:p-4 md:p-12 animate-in fade-in slide-in-from-bottom duration-300 overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
       {/* Top Ambient Glow Backdrop */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full bg-[var(--accent-glow)] blur-3xl opacity-30 pointer-events-none" />
 
@@ -88,7 +88,7 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
       </div>
 
       {/* Center: Full Album Cover Artwork Display */}
-      <div className="relative landscape:w-2/5 landscape:flex-none flex flex-col items-center justify-center landscape:my-0 my-6 min-h-[260px] landscape:min-h-0 z-10 select-none">
+      <div className="relative landscape:w-2/5 landscape:flex-none flex flex-col items-center justify-center landscape:my-0 my-4 min-h-[240px] landscape:min-h-0 z-10 select-none">
         <div className="relative">
           {/* Smooth Circular Ambient Glow — eliminates square background artifacts */}
           <div

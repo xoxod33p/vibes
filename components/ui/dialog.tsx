@@ -34,7 +34,10 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
+        // Base: centered on desktop
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-3xl border border-white/10 bg-[#0d121c]/95 p-6 shadow-2xl backdrop-blur-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+        // Mobile: anchor near top so keyboard doesn't cover the dialog; allow internal scroll
+        "max-sm:top-[5%] max-sm:translate-y-0 max-sm:max-h-[85dvh] max-sm:overflow-y-auto",
         className
       )}
       {...props}

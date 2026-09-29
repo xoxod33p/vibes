@@ -96,12 +96,15 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const [activeDownloads, setActiveDownloads] = useState<Record<string, WsDownloadProgress>>({});
   const [isWsConnected, setIsWsConnected] = useState<boolean>(false);
 
+  const [audioInstance, setAudioInstance] = useState<HTMLAudioElement | null>(null);
+
   // Initialize Audio element
   useEffect(() => {
     if (typeof window === "undefined") return;
     const audio = new Audio();
     audio.preload = "auto";
     audioRef.current = audio;
+    setAudioInstance(audio);
 
     const handleEnded = () => {
       handleTrackEndedRef.current();
@@ -451,8 +454,23 @@ function getAuthHeaders(): Record<string, string> {
 
   const seek = useCallback((time: number) => {
     const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = time;
+    if (!audio || isNaN(time) || !isFinite(time)) return;
+    const target = Math.max(0, time);
+    if (audio.readyState === 0) {
+      const onLoaded = () => {
+        try {
+          audio.currentTime = Math.min(target, audio.duration && isFinite(audio.duration) ? audio.duration : target);
+        } catch {}
+        audio.removeEventListener("loadedmetadata", onLoaded);
+      };
+      audio.addEventListener("loadedmetadata", onLoaded);
+      return;
+    }
+    try {
+      audio.currentTime = Math.min(target, audio.duration && isFinite(audio.duration) ? audio.duration : target);
+    } catch (e) {
+      console.warn("Seek failed:", e);
+    }
   }, []);
 
   const nextTrack = useCallback(() => {
@@ -764,7 +782,11 @@ function getAuthHeaders(): Record<string, string> {
 
   return (
     <AudioContext.Provider value={value}>
-      <AudioTimeProvider audioRef={audioRef}>
+      <AudioTimeProvider
+        audio={audioInstance}
+        currentSongDuration={currentSong?.duration || 0}
+        currentSongId={currentSong?.id}
+      >
         {children}
       </AudioTimeProvider>
     </AudioContext.Provider>
@@ -772,60 +794,72 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 function AudioTimeProvider({
-  audioRef,
+  audio,
+  currentSongDuration,
+  currentSongId,
   children,
 }: {
-  audioRef: React.RefObject<HTMLAudioElement | null>;
+  audio: HTMLAudioElement | null;
+  currentSongDuration: number;
+  currentSongId?: string;
   children: React.ReactNode;
 }) {
-  const [time, setTime] = useState<AudioTimeContextType>({ currentTime: 0, duration: 0 });
+  const [time, setTime] = useState<AudioTimeContextType>({
+    currentTime: 0,
+    duration: currentSongDuration,
+  });
+
+  // When song changes, immediately sync duration and reset time
+  useEffect(() => {
+    setTime({
+      currentTime: 0,
+      duration: currentSongDuration,
+    });
+  }, [currentSongId, currentSongDuration]);
 
   useEffect(() => {
-    const audio = audioRef.current;
     if (!audio) return;
 
     let lastTime = 0;
-    const handleTimeUpdate = () => {
+    const updateTime = (force = false) => {
       const cur = audio.currentTime;
-      // Throttle updates to ~4Hz to minimize CPU work while keeping scrubber completely smooth
-      if (Math.abs(cur - lastTime) >= 0.25 || audio.paused) {
+      if (force || Math.abs(cur - lastTime) >= 0.2 || audio.paused) {
         lastTime = cur;
-        setTime((prev) => ({
+        const dur = audio.duration;
+        const validDur = dur && !isNaN(dur) && isFinite(dur) && dur > 0 ? dur : currentSongDuration;
+        setTime({
           currentTime: cur,
-          duration: audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) ? audio.duration : prev.duration,
-        }));
+          duration: validDur,
+        });
       }
     };
 
-    const handleLoadedMetadata = () => {
-      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
-        setTime((prev) => ({
-          ...prev,
-          duration: audio.duration,
-        }));
-      }
-    };
-
-    const handleSeeking = () => {
-      lastTime = audio.currentTime;
-      setTime((prev) => ({
-        currentTime: audio.currentTime,
-        duration: audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) ? audio.duration : prev.duration,
-      }));
-    };
+    const handleTimeUpdate = () => updateTime(false);
+    const handleDurationChange = () => updateTime(true);
+    const handleSeeking = () => updateTime(true);
+    const handleSeeked = () => updateTime(true);
+    const handlePlayPause = () => updateTime(true);
 
     audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("loadedmetadata", handleDurationChange);
+    audio.addEventListener("durationchange", handleDurationChange);
     audio.addEventListener("seeking", handleSeeking);
-    audio.addEventListener("seeked", handleSeeking);
+    audio.addEventListener("seeked", handleSeeked);
+    audio.addEventListener("play", handlePlayPause);
+    audio.addEventListener("pause", handlePlayPause);
+
+    updateTime(true);
 
     return () => {
       audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("loadedmetadata", handleDurationChange);
+      audio.removeEventListener("durationchange", handleDurationChange);
       audio.removeEventListener("seeking", handleSeeking);
-      audio.removeEventListener("seeked", handleSeeking);
+      audio.removeEventListener("seeked", handleSeeked);
+      audio.removeEventListener("play", handlePlayPause);
+      audio.removeEventListener("pause", handlePlayPause);
     };
-  }, [audioRef]);
+  }, [audio, currentSongDuration]);
 
   return (
     <AudioTimeContext.Provider value={time}>

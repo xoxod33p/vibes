@@ -65,14 +65,20 @@ export async function POST(req: NextRequest) {
     const attempts: Array<{ useCookies: boolean; client: string }> = [];
     if (cookiesFile) {
       attempts.push({ useCookies: true, client: "" });
-      attempts.push({ useCookies: true, client: "default,web_safari,web_embedded" });
-      attempts.push({ useCookies: true, client: "android,web" });
-      attempts.push({ useCookies: false, client: "android,web" });
-      attempts.push({ useCookies: false, client: "ios,android,web" });
-    } else {
-      attempts.push({ useCookies: false, client: "android,web" });
-      attempts.push({ useCookies: false, client: "ios,android,web" });
+      attempts.push({ useCookies: true, client: "default,-android_sdkless" });
+      attempts.push({ useCookies: true, client: "web_embedded,web,tv" });
+      attempts.push({ useCookies: true, client: "mweb" });
       attempts.push({ useCookies: false, client: "" });
+      attempts.push({ useCookies: false, client: "default,-android_sdkless" });
+      attempts.push({ useCookies: false, client: "web_embedded,web,tv" });
+      attempts.push({ useCookies: false, client: "mweb" });
+      attempts.push({ useCookies: false, client: "android,web" });
+    } else {
+      attempts.push({ useCookies: false, client: "" });
+      attempts.push({ useCookies: false, client: "default,-android_sdkless" });
+      attempts.push({ useCookies: false, client: "web_embedded,web,tv" });
+      attempts.push({ useCookies: false, client: "mweb" });
+      attempts.push({ useCookies: false, client: "android,web" });
     }
 
     let stdout = "";
@@ -88,7 +94,7 @@ export async function POST(req: NextRequest) {
         "--no-playlist",
         "--no-warnings",
         "--print-json",
-        "--concurrent-fragments", "5",
+        "--no-cache-dir",
         "--no-check-certificates",
       ];
 
@@ -117,7 +123,7 @@ export async function POST(req: NextRequest) {
         lastExecErr = execErr;
         const execObj = execErr as { message?: string; stderr?: string };
         const errorMsg = execObj.stderr?.trim() || execObj.message || String(execErr);
-        const isRecoverable = /reloaded|bot|sign in|429|cookie/i.test(errorMsg);
+        const isRecoverable = /reloaded|bot|sign in|429|403|forbidden|unable to download|cookie/i.test(errorMsg);
         if (!isRecoverable && !attempt.useCookies) {
           break;
         }

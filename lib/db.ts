@@ -41,14 +41,23 @@ function initFirestore(): Firestore {
     }
 
     if (!credential) {
-      const filePath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.join(BASE_DIR, "serviceAccountKey.json");
-      if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
-        try {
-          const fileContent = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
-          const parsed = JSON.parse(fileContent);
-          credential = cert(parsed);
-        } catch (err) {
-          console.error("[firebase] Failed to read serviceAccountKey file:", err);
+      const candidates = [
+        process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+        path.join(BASE_DIR, "serviceAccountKey.json"),
+        "/app/serviceAccountKey.json",
+        "/home/admin/vibes/serviceAccountKey.json",
+      ].filter(Boolean) as string[];
+
+      for (const filePath of candidates) {
+        if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+          try {
+            const fileContent = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
+            const parsed = JSON.parse(fileContent);
+            credential = cert(parsed);
+            break;
+          } catch (err) {
+            console.error("[firebase] Failed to read serviceAccountKey file:", err);
+          }
         }
       }
     }
@@ -429,6 +438,14 @@ export function getCookiesPath(): string | null {
     if (fs.existsSync(rootCookies)) {
       const stat = fs.statSync(rootCookies);
       if (stat.isFile() && stat.size > 0) return rootCookies;
+    }
+  } catch {}
+
+  const dockerCookies = "/app/cookies.txt";
+  try {
+    if (fs.existsSync(dockerCookies)) {
+      const stat = fs.statSync(dockerCookies);
+      if (stat.isFile() && stat.size > 0) return dockerCookies;
     }
   } catch {}
 

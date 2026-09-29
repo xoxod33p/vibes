@@ -23,7 +23,7 @@ const Slider = React.forwardRef<
     </SliderPrimitive.Track>
     <SliderPrimitive.Thumb
       className={cn(
-        "block h-3.5 w-3.5 rounded-full border-2 border-white bg-[var(--accent-primary)] shadow-md transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 group-hover:scale-125",
+        "block h-3.5 w-3.5 rounded-full border-2 border-white bg-[var(--accent-primary)] shadow-md transition-[transform,opacity] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400 group-hover:scale-125",
         showThumbOnHoverOnly ? "opacity-0 group-hover:opacity-100" : "opacity-100"
       )}
     />

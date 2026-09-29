@@ -66,7 +66,7 @@ async function runBackgroundDownload(opts: {
         "--print-json",
         "--newline",
         "--progress-template", "VIBES_PROG:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_estimate_str)s",
-        "--concurrent-fragments", "5",
+        "--no-cache-dir",
         "--no-check-certificates",
       ];
 
@@ -143,14 +143,21 @@ async function runBackgroundDownload(opts: {
   const attempts: Array<{ useCookies: boolean; client: string }> = [];
   if (cookiesFile) {
     attempts.push({ useCookies: true, client: "" });
-    attempts.push({ useCookies: true, client: "default,web_safari,web_embedded" });
-    attempts.push({ useCookies: true, client: "android,web" });
-    attempts.push({ useCookies: false, client: "android,web" });
-    attempts.push({ useCookies: false, client: "ios,android,web" });
-  } else {
-    attempts.push({ useCookies: false, client: "android,web" });
-    attempts.push({ useCookies: false, client: "ios,android,web" });
+    attempts.push({ useCookies: true, client: "default,-android_sdkless" });
+    attempts.push({ useCookies: true, client: "web_embedded,web,tv" });
+    attempts.push({ useCookies: true, client: "mweb" });
+    // In case server cookies are expired or blocked by YouTube, fall back to clean unauthenticated attempts
     attempts.push({ useCookies: false, client: "" });
+    attempts.push({ useCookies: false, client: "default,-android_sdkless" });
+    attempts.push({ useCookies: false, client: "web_embedded,web,tv" });
+    attempts.push({ useCookies: false, client: "mweb" });
+    attempts.push({ useCookies: false, client: "android,web" });
+  } else {
+    attempts.push({ useCookies: false, client: "" });
+    attempts.push({ useCookies: false, client: "default,-android_sdkless" });
+    attempts.push({ useCookies: false, client: "web_embedded,web,tv" });
+    attempts.push({ useCookies: false, client: "mweb" });
+    attempts.push({ useCookies: false, client: "android,web" });
   }
 
   let finalStdout = "";
@@ -180,8 +187,8 @@ async function runBackgroundDownload(opts: {
       break;
     }
 
-    const isReloadOrBot = /reloaded|bot|sign in|429/i.test(res.stderr);
-    if (!isReloadOrBot && i === 0 && !attempt.useCookies) {
+    const isRecoverable = /reloaded|bot|sign in|429|403|forbidden|unable to download/i.test(res.stderr);
+    if (!isRecoverable && i === 0 && !attempt.useCookies) {
       break;
     }
   }

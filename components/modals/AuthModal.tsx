@@ -64,7 +64,13 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
     } catch (err: unknown) {
       const authErr = err as { code?: string; message?: string };
       if (authErr.code !== "auth/popup-closed-by-user" && authErr.code !== "auth/cancelled-popup-request") {
-        setError(authErr.message || "Failed to sign in with Google");
+        if (authErr.code === "auth/unauthorized-domain") {
+          setError("Domain not authorized in Firebase Console. Add your domain/IP in Firebase Console -> Authentication -> Settings -> Authorized domains.");
+        } else if (authErr.code === "auth/operation-not-allowed") {
+          setError("Google Sign-In is disabled. Enable Google provider in Firebase Console -> Authentication -> Sign-in method.");
+        } else {
+          setError(authErr.message || "Failed to sign in with Google");
+        }
       }
     } finally {
       setGoogleLoading(false);

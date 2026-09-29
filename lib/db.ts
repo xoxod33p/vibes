@@ -67,7 +67,7 @@ function initFirestore(): Firestore {
 
     try {
       if (credential) {
-        initializeApp({ credential });
+        initializeApp({ credential, projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || undefined });
       } else {
         if (!isBuild) {
           console.warn("[firebase] Warning: No Firebase Service Account JSON provided.");

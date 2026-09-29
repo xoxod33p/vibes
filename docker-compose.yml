@@ -26,9 +26,8 @@ services:
       - ./uploads:/app/uploads
       - ./public/covers:/app/public/covers
       - ./cache:/app/cache
-      # Optional: Uncomment if using a local cookies file or Firebase key
-      # - ./cookies.txt:/app/cookies.txt:ro
-      # - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
+      - ./cookies.txt:/app/cookies.txt:ro
+      - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5000/api/songs || exit 1"]
       interval: 30s

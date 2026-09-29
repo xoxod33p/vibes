@@ -1,5 +1,5 @@
 import { getApps, initializeApp, cert, type Credential } from "firebase-admin/app";
-import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { getFirestore, Firestore, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import path from "node:path";
 import fs from "node:fs";
 import { Song, Playlist } from "./types";
@@ -165,7 +165,7 @@ export const songsDb = {
     const snap = await db.collection("songs").get();
     let songs: Song[] = [];
 
-    snap.forEach((doc) => {
+    snap.forEach((doc: QueryDocumentSnapshot) => {
       const data = doc.data() as Song;
       if (data.status !== "pending") {
         songs.push(data);
@@ -226,10 +226,10 @@ export const songsDb = {
     batch.delete(db.collection("songs").doc(id));
 
     const psSnap = await db.collection("playlist_songs").where("song_id", "==", id).get();
-    psSnap.forEach((doc) => batch.delete(doc.ref));
+    psSnap.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     const favSnap = await db.collection("favorites").where("song_id", "==", id).get();
-    favSnap.forEach((doc) => batch.delete(doc.ref));
+    favSnap.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
 
     await batch.commit();
   },
@@ -246,10 +246,10 @@ export const songsDb = {
       batch.delete(doc.ref);
 
       const psSnap = await db.collection("playlist_songs").where("song_id", "==", song.id).get();
-      psSnap.forEach((pDoc) => batch.delete(pDoc.ref));
+      psSnap.forEach((pDoc: QueryDocumentSnapshot) => batch.delete(pDoc.ref));
 
       const favSnap = await db.collection("favorites").where("song_id", "==", song.id).get();
-      favSnap.forEach((fDoc) => batch.delete(fDoc.ref));
+      favSnap.forEach((fDoc: QueryDocumentSnapshot) => batch.delete(fDoc.ref));
     }
 
     await batch.commit();
@@ -325,7 +325,7 @@ export const playlistsDb = {
     batch.delete(docRef);
 
     const psSnap = await db.collection("playlist_songs").where("playlist_id", "==", id).get();
-    psSnap.forEach((pDoc) => batch.delete(pDoc.ref));
+    psSnap.forEach((pDoc: QueryDocumentSnapshot) => batch.delete(pDoc.ref));
 
     await batch.commit();
     return true;
@@ -340,10 +340,10 @@ export const playlistsDb = {
 
     if (psSnap.empty) return [];
 
-    const items = psSnap.docs.map((d) => d.data() as { song_id: string; position: number });
-    items.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    const items = psSnap.docs.map((d: QueryDocumentSnapshot) => d.data() as { song_id: string; position: number });
+    items.sort((a: { position?: number }, b: { position?: number }) => (a.position ?? 0) - (b.position ?? 0));
 
-    const songIds = items.map((i) => i.song_id);
+    const songIds = items.map((i: { song_id: string }) => i.song_id);
     const songs: Song[] = [];
 
     for (const songId of songIds) {
@@ -386,8 +386,8 @@ export const favoritesDb = {
     const snap = await db.collection("favorites").where("user_id", "==", userId).get();
     if (snap.empty) return [];
 
-    const items = snap.docs.map((d) => d.data() as { song_id: string; created_at: string });
-    items.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    const items = snap.docs.map((d: QueryDocumentSnapshot) => d.data() as { song_id: string; created_at: string });
+    items.sort((a: { created_at?: string }, b: { created_at?: string }) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
 
     const songs: Song[] = [];
     for (const item of items) {
@@ -402,7 +402,7 @@ export const favoritesDb = {
   async listIds(userId: string): Promise<string[]> {
     if (!userId) return [];
     const snap = await db.collection("favorites").where("user_id", "==", userId).get();
-    return snap.docs.map((d) => (d.data() as { song_id: string }).song_id);
+    return snap.docs.map((d: QueryDocumentSnapshot) => (d.data() as { song_id: string }).song_id);
   },
 
   async add(userId: string, songId: string): Promise<void> {

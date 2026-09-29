@@ -53,28 +53,7 @@ export async function POST(req: NextRequest) {
     const tempStem = `ytdl_${crypto.randomBytes(4).toString("hex")}`;
     const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
-    const args = [
-      "-f", "bestaudio/best",
-      "-x",
-      "--audio-format", "mp3",
-      "--audio-quality", "320K",
-      "-o", outputTemplate,
-      "--no-playlist",
-      "--no-warnings",
-      "--print-json",
-      "--concurrent-fragments", "5",
-    ];
-
     const cookiesFile = getCookiesPath();
-    if (cookiesFile) {
-      console.log(`[ytdl] Using cookies file: ${cookiesFile}`);
-      args.push("--cookies", cookiesFile);
-    } else {
-      console.log("[ytdl] No cookies file found");
-    }
-
-    args.push(target);
-
     const extendedPath = [
       process.env.PATH || "",
       "/usr/local/bin",
@@ -83,19 +62,64 @@ export async function POST(req: NextRequest) {
       path.join(process.env.HOME || "/home/admin", ".local/bin"),
     ].join(process.platform === "win32" ? ";" : ":");
 
+    const attempts: Array<{ useCookies: boolean; client: string }> = [];
+    if (cookiesFile) {
+      attempts.push({ useCookies: true, client: "android,web" });
+      attempts.push({ useCookies: false, client: "android,web" });
+      attempts.push({ useCookies: false, client: "ios,android,web" });
+    } else {
+      attempts.push({ useCookies: false, client: "android,web" });
+      attempts.push({ useCookies: false, client: "ios,android,web" });
+    }
+
     let stdout = "";
-    try {
-      const res = await execFileAsync(getYtdlpPath(), args, {
-        timeout: 120000,
-        env: {
-          ...process.env,
-          PATH: extendedPath,
-        },
-      });
-      stdout = res.stdout;
-    } catch (execErr: unknown) {
-      const execObj = execErr as { message?: string; stderr?: string };
-      const errorMsg = execObj.stderr?.trim() || execObj.message || String(execErr);
+    let lastExecErr: unknown = null;
+
+    for (const attempt of attempts) {
+      const args = [
+        "-f", "bestaudio/best",
+        "-x",
+        "--audio-format", "mp3",
+        "--audio-quality", "320K",
+        "-o", outputTemplate,
+        "--no-playlist",
+        "--no-warnings",
+        "--print-json",
+        "--concurrent-fragments", "5",
+        "--extractor-args", `youtube:player_client=${attempt.client}`,
+      ];
+
+      if (attempt.useCookies && cookiesFile) {
+        args.push("--cookies", cookiesFile);
+      }
+
+      args.push(target);
+
+      try {
+        const res = await execFileAsync(getYtdlpPath(), args, {
+          timeout: 120000,
+          env: {
+            ...process.env,
+            PATH: extendedPath,
+          },
+        });
+        stdout = res.stdout;
+        lastExecErr = null;
+        break;
+      } catch (execErr: unknown) {
+        lastExecErr = execErr;
+        const execObj = execErr as { message?: string; stderr?: string };
+        const errorMsg = execObj.stderr?.trim() || execObj.message || String(execErr);
+        const isRecoverable = /reloaded|bot|sign in|429|cookie/i.test(errorMsg);
+        if (!isRecoverable && !attempt.useCookies) {
+          break;
+        }
+      }
+    }
+
+    if (lastExecErr || !stdout) {
+      const execObj = lastExecErr as { message?: string; stderr?: string };
+      const errorMsg = execObj?.stderr?.trim() || execObj?.message || String(lastExecErr || "yt-dlp failed");
       console.error("yt-dlp execution error:", errorMsg);
       return NextResponse.json(
         { error: `Download failed: ${errorMsg.slice(0, 300)}` },
@@ -112,7 +136,6 @@ export async function POST(req: NextRequest) {
       console.warn("Could not parse yt-dlp JSON output:", parseErr);
     }
 
-    // Locate the downloaded file
     const files = fs.readdirSync(UPLOAD_FOLDER);
     const downloadedName = files.find((f) => f.startsWith(tempStem));
 
@@ -120,8 +143,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Audio file was not saved" }, { status: 500 });
     }
 
-    const downloadedPath = path.join(UPLOAD_FOLDER, downloadedName);
-    // Keep the actual file extension (m4a, opus, webm) - don't force .mp3
     const finalFilename = downloadedName;
 
     const title = overrideTitle || (info.title as string) || "Audio Track";

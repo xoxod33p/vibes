@@ -12,7 +12,7 @@ export interface ResolvedTrack {
   title: string;
   artist: string;
   album?: string;
-  duration: number; // in seconds
+  duration: number;
   url?: string;
   searchQuery?: string;
   coverUrl?: string | null;
@@ -37,7 +37,6 @@ export function isYouTubeUrl(url: string): boolean {
 }
 
 export async function resolveSpotify(url: string): Promise<ResolvedMedia> {
-  // Extract entity type and ID
   let entityType: "track" | "playlist" | "album" = "track";
   let entityId = "";
 
@@ -90,13 +89,11 @@ export async function resolveSpotify(url: string): Promise<ResolvedMedia> {
     (entity.authors ? entity.authors.map((a: { name: string }) => a.name).join(", ") : "") ||
     "Spotify";
 
-  // Pick best cover image
   let coverUrl: string | null = null;
   if (entity.coverArt?.sources && entity.coverArt.sources.length > 0) {
     coverUrl = entity.coverArt.sources[0].url;
   } else if (entity.visualIdentity?.image && entity.visualIdentity.image.length > 0) {
     const images = entity.visualIdentity.image as Array<{ url: string; maxHeight?: number }>;
-    // Get the highest resolution one
     const sorted = [...images].sort((a, b) => (b.maxHeight || 0) - (a.maxHeight || 0));
     coverUrl = sorted[0]?.url || null;
   }
@@ -121,7 +118,6 @@ export async function resolveSpotify(url: string): Promise<ResolvedMedia> {
       coverUrl,
     });
   } else {
-    // Playlist or Album
     const isAlbum = entityType === "album";
     const trackList = (entity.trackList || []) as Array<{
       title: string;
@@ -162,25 +158,7 @@ export async function resolveSpotify(url: string): Promise<ResolvedMedia> {
 }
 
 export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
-  const args = [
-    "--flat-playlist",
-    "-J",
-    "--no-warnings",
-    "--skip-download",
-    "--no-check-formats",
-    "--ignore-errors",
-  ];
-
   const cookiesFile = getCookiesPath();
-  if (cookiesFile) {
-    console.log(`[resolveYouTube] Using cookies: ${cookiesFile}`);
-    args.push("--cookies", cookiesFile);
-  } else {
-    console.log("[resolveYouTube] No cookies file found");
-  }
-
-  args.push(url);
-
   const extendedPath = [
     process.env.PATH || "",
     "/usr/local/bin",
@@ -189,18 +167,59 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
     path.join(process.env.HOME || "/home/admin", ".local/bin"),
   ].join(process.platform === "win32" ? ";" : ":");
 
+  const attempts: Array<{ useCookies: boolean; client: string }> = [];
+  if (cookiesFile) {
+    attempts.push({ useCookies: true, client: "android,web" });
+    attempts.push({ useCookies: false, client: "android,web" });
+    attempts.push({ useCookies: false, client: "ios,android,web" });
+  } else {
+    attempts.push({ useCookies: false, client: "android,web" });
+    attempts.push({ useCookies: false, client: "ios,android,web" });
+  }
+
   let stdout = "";
-  try {
-    const res = await execFileAsync(getYtdlpPath(), args, {
-      timeout: 60000,
-      env: {
-        ...process.env,
-        PATH: extendedPath,
-      },
-    });
-    stdout = res.stdout;
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
+  let lastErr: unknown = null;
+
+  for (const attempt of attempts) {
+    const args = [
+      "--flat-playlist",
+      "-J",
+      "--no-warnings",
+      "--skip-download",
+      "--no-check-formats",
+      "--ignore-errors",
+      "--extractor-args", `youtube:player_client=${attempt.client}`,
+    ];
+
+    if (attempt.useCookies && cookiesFile) {
+      args.push("--cookies", cookiesFile);
+    }
+
+    args.push(url);
+
+    try {
+      const res = await execFileAsync(getYtdlpPath(), args, {
+        timeout: 60000,
+        env: {
+          ...process.env,
+          PATH: extendedPath,
+        },
+      });
+      stdout = res.stdout;
+      lastErr = null;
+      break;
+    } catch (err: unknown) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      const isRecoverable = /reloaded|bot|sign in|429|cookie/i.test(msg);
+      if (!isRecoverable && !attempt.useCookies) {
+        break;
+      }
+    }
+  }
+
+  if (lastErr || !stdout) {
+    const msg = lastErr instanceof Error ? lastErr.message : String(lastErr || "No output");
     throw new Error(`Failed to inspect YouTube URL: ${msg.slice(0, 200)}`);
   }
 
@@ -223,7 +242,6 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
     const entries = (info.entries as Array<Record<string, unknown>>) || [];
     const tracks: ResolvedTrack[] = [];
 
-    // Find playlist cover
     const thumbnails = (info.thumbnails as Array<{ url: string }>) || [];
     const coverUrl = thumbnails.length > 0 ? thumbnails[thumbnails.length - 1].url : null;
 
@@ -272,7 +290,6 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
       tracks,
     };
   } else {
-    // Single Video
     const title = (info.title as string) || "YouTube Audio";
     const artist =
       (info.artist as string) ||
@@ -311,19 +328,12 @@ export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
   }
 }
 
-/**
- * Clean YouTube URLs by stripping auto-generated Mix playlist params (list=RD...).
- * YouTube Mixes are personalized and can't be fetched via yt-dlp.
- * Regular playlists (list=PL...) are kept intact.
- */
 function cleanYouTubeUrl(url: string): string {
   try {
     const parsed = new URL(url);
     const list = parsed.searchParams.get("list");
-    // YouTube Mixes start with "RD" — remove them
     if (list && list.startsWith("RD")) {
       parsed.searchParams.delete("list");
-      // Also remove the mix-related index/start_radio params
       parsed.searchParams.delete("index");
       parsed.searchParams.delete("start_radio");
       return parsed.toString();
@@ -341,7 +351,6 @@ export async function inspectMediaUrl(url: string): Promise<ResolvedMedia> {
   } else if (isYouTubeUrl(trimmed)) {
     return resolveYouTube(cleanYouTubeUrl(trimmed));
   } else {
-    // Fallback: try YouTube ytsearch or URL
     return resolveYouTube(trimmed);
   }
 }

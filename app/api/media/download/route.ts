@@ -14,7 +14,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-// Run the actual yt-dlp download in the background and update DB when done
 async function runBackgroundDownload(opts: {
   songId: string;
   tempStem: string;
@@ -31,7 +30,6 @@ async function runBackgroundDownload(opts: {
   const { songId, tempStem, target, title, artist, album, duration, coverUrl, isPlaylist, playlistId, userId } = opts;
   const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
-  // Initial broadcast
   broadcastDownloadProgress({
     songId,
     title,
@@ -40,30 +38,7 @@ async function runBackgroundDownload(opts: {
     progress: 0,
   });
 
-  const args = [
-    "-f", "bestaudio/best",
-    "-x",
-    "--audio-format", "mp3",
-    "--audio-quality", "320K",
-    "-o", outputTemplate,
-    "--no-playlist",
-    "--no-warnings",
-    "--print-json",
-    "--newline",
-    "--progress-template", "VIBES_PROG:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_estimate_str)s",
-    "--concurrent-fragments", "5",
-  ];
-
   const cookiesFile = getCookiesPath();
-  if (cookiesFile) {
-    console.log(`[download:bg] Using cookies file: ${cookiesFile}`);
-    args.push("--cookies", cookiesFile);
-  } else {
-    console.log("[download:bg] No cookies file found");
-  }
-
-  args.push(target);
-
   const extendedPath = [
     process.env.PATH || "",
     "/usr/local/bin",
@@ -72,67 +47,133 @@ async function runBackgroundDownload(opts: {
     path.join(process.env.HOME || "/home/admin", ".local/bin"),
   ].join(process.platform === "win32" ? ";" : ":");
 
-  let info: Record<string, unknown> = {};
-  let stdoutData = "";
-  let stderrData = "";
+  const runYtdlpAttempt = (useCookies: boolean, clientArg: string) => {
+    return new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve) => {
+      const args = [
+        "-f", "bestaudio/best",
+        "-x",
+        "--audio-format", "mp3",
+        "--audio-quality", "320K",
+        "-o", outputTemplate,
+        "--no-playlist",
+        "--no-warnings",
+        "--print-json",
+        "--newline",
+        "--progress-template", "VIBES_PROG:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_estimate_str)s",
+        "--concurrent-fragments", "5",
+        "--extractor-args", `youtube:player_client=${clientArg}`,
+      ];
 
-  const child = spawn(getYtdlpPath(), args, {
-    env: { ...process.env, PATH: extendedPath },
-  });
-
-  child.stdout.on("data", (chunk: Buffer) => {
-    const text = chunk.toString();
-    stdoutData += text;
-
-    const lines = text.split(/\r?\n/);
-    for (const line of lines) {
-      if (line.startsWith("VIBES_PROG:")) {
-        const parts = line.slice("VIBES_PROG:".length).split("|");
-        const rawPercent = (parts[0] || "").replace("%", "").trim();
-        const percent = parseFloat(rawPercent);
-        const speed = (parts[1] || "").trim();
-        const eta = (parts[2] || "").trim();
-        const totalSize = (parts[3] || "").trim();
-
-        if (!isNaN(percent)) {
-          broadcastDownloadProgress({
-            songId,
-            title,
-            artist,
-            status: "downloading",
-            progress: Math.min(Math.max(percent, 0), 99),
-            speed: speed || undefined,
-            eta: eta || undefined,
-            totalSize: totalSize || undefined,
-          });
-        }
-      } else if (line.includes("[ExtractAudio]") || line.includes("[PostProcessor]")) {
-        broadcastDownloadProgress({
-          songId,
-          title,
-          artist,
-          status: "transcoding",
-          progress: 95,
-          speed: "Converting to audio...",
-        });
+      if (useCookies && cookiesFile) {
+        args.push("--cookies", cookiesFile);
       }
-    }
-  });
 
-  child.stderr.on("data", (chunk: Buffer) => {
-    stderrData += chunk.toString();
-  });
+      args.push(target);
 
-  const exitCode = await new Promise<number>((resolve) => {
-    child.on("close", resolve);
-    child.on("error", (err) => {
-      stderrData += " " + err.message;
-      resolve(1);
+      let stdoutData = "";
+      let stderrData = "";
+
+      const child = spawn(getYtdlpPath(), args, {
+        env: { ...process.env, PATH: extendedPath },
+      });
+
+      child.stdout.on("data", (chunk: Buffer) => {
+        const text = chunk.toString();
+        stdoutData += text;
+
+        const lines = text.split(/\r?\n/);
+        for (const line of lines) {
+          if (line.startsWith("VIBES_PROG:")) {
+            const parts = line.slice("VIBES_PROG:".length).split("|");
+            const rawPercent = (parts[0] || "").replace("%", "").trim();
+            const percent = parseFloat(rawPercent);
+            const speed = (parts[1] || "").trim();
+            const eta = (parts[2] || "").trim();
+            const totalSize = (parts[3] || "").trim();
+
+            if (!isNaN(percent)) {
+              broadcastDownloadProgress({
+                songId,
+                title,
+                artist,
+                status: "downloading",
+                progress: Math.min(Math.max(percent, 0), 99),
+                speed: speed || undefined,
+                eta: eta || undefined,
+                totalSize: totalSize || undefined,
+              });
+            }
+          } else if (line.includes("[ExtractAudio]") || line.includes("[PostProcessor]")) {
+            broadcastDownloadProgress({
+              songId,
+              title,
+              artist,
+              status: "transcoding",
+              progress: 95,
+              speed: "Converting to audio...",
+            });
+          }
+        }
+      });
+
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderrData += chunk.toString();
+      });
+
+      child.on("close", (code) => {
+        resolve({ exitCode: code ?? 0, stdout: stdoutData, stderr: stderrData });
+      });
+
+      child.on("error", (err) => {
+        resolve({ exitCode: 1, stdout: stdoutData, stderr: stderrData + " " + err.message });
+      });
     });
-  });
+  };
 
-  if (exitCode !== 0) {
-    const errorMsg = stderrData.trim().slice(0, 300) || "yt-dlp process failed";
+  const attempts: Array<{ useCookies: boolean; client: string }> = [];
+  if (cookiesFile) {
+    attempts.push({ useCookies: true, client: "android,web" });
+    attempts.push({ useCookies: false, client: "android,web" });
+    attempts.push({ useCookies: false, client: "ios,android,web" });
+  } else {
+    attempts.push({ useCookies: false, client: "android,web" });
+    attempts.push({ useCookies: false, client: "ios,android,web" });
+  }
+
+  let finalStdout = "";
+  let finalStderr = "";
+  let success = false;
+
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i];
+    if (i > 0) {
+      broadcastDownloadProgress({
+        songId,
+        title,
+        artist,
+        status: "downloading",
+        progress: 1,
+        speed: "Retrying download...",
+      });
+    }
+
+    const res = await runYtdlpAttempt(attempt.useCookies, attempt.client);
+    finalStdout = res.stdout;
+    finalStderr = res.stderr;
+
+    if (res.exitCode === 0) {
+      success = true;
+      break;
+    }
+
+    const isReloadOrBot = /reloaded|bot|sign in|429/i.test(res.stderr);
+    if (!isReloadOrBot && i === 0 && !attempt.useCookies) {
+      break;
+    }
+  }
+
+  if (!success) {
+    const errorMsg = finalStderr.trim().slice(0, 300) || "yt-dlp process failed";
     console.error("[download:bg] yt-dlp error:", errorMsg);
 
     try {
@@ -143,9 +184,9 @@ async function runBackgroundDownload(opts: {
     return;
   }
 
-  // Parse JSON info from stdout
+  let info: Record<string, unknown> = {};
   try {
-    const lines = stdoutData.trim().split("\n");
+    const lines = finalStdout.trim().split("\n");
     const lastJsonLine = lines.findLast((l) => l.startsWith("{") && l.endsWith("}")) || "";
     if (lastJsonLine) {
       info = JSON.parse(lastJsonLine);
@@ -154,7 +195,6 @@ async function runBackgroundDownload(opts: {
     console.warn("[download:bg] Could not parse yt-dlp JSON output");
   }
 
-  // Locate downloaded file
   const files = fs.readdirSync(UPLOAD_FOLDER);
   const downloadedName = files.find((f) => f.startsWith(tempStem) && !f.endsWith(".pending"));
   if (!downloadedName) {
@@ -166,7 +206,6 @@ async function runBackgroundDownload(opts: {
 
   const finalFilename = downloadedName;
 
-  // Resolve metadata
   const finalTitle = title !== "Downloading..." ? title : ((info.title as string) || "Audio Track");
   const finalArtist = artist !== "Please wait" ? artist : (
     (info.artist as string) || (info.uploader as string) || (info.channel as string) || "Unknown Artist"
@@ -174,7 +213,6 @@ async function runBackgroundDownload(opts: {
   const finalAlbum = album || (info.album as string) || "Downloaded Audio";
   const finalDuration = duration > 0 ? duration : (typeof info.duration === "number" ? info.duration : 0);
 
-  // Cover art
   let downloadedThumbnail: string | null = null;
   if (info.thumbnail && typeof info.thumbnail === "string") {
     downloadedThumbnail = info.thumbnail;
@@ -202,7 +240,6 @@ async function runBackgroundDownload(opts: {
     }
   }
 
-  // Update DB record
   try {
     await songsDb.update(songId, {
       title: finalTitle,
@@ -214,7 +251,6 @@ async function runBackgroundDownload(opts: {
       status: "ready",
     });
 
-    // Associate with playlist if needed
     if (playlistId) {
       try {
         await playlistsDb.addSong(playlistId, songId);
@@ -266,7 +302,6 @@ export async function POST(req: NextRequest) {
     const songId = crypto.randomUUID();
     const tempStem = `ytdl_${crypto.randomBytes(4).toString("hex")}`;
 
-    // Use provided metadata as placeholders while downloading
     const title = (body.title as string)?.trim() || "Downloading...";
     const artist = (body.artist as string)?.trim() || "Please wait";
     const album = (body.album as string)?.trim() || "Downloaded Audio";
@@ -275,7 +310,6 @@ export async function POST(req: NextRequest) {
     const isPlaylist = Boolean(body.isPlaylist || body.playlistId);
     const playlistId = (body.playlistId as string) || null;
 
-    // Insert a pending placeholder immediately so it shows in the library
     const pendingFilename = `${tempStem}.pending`;
     await songsDb.create({
       id: songId,
@@ -297,7 +331,6 @@ export async function POST(req: NextRequest) {
       progress: 0,
     });
 
-    // Add to sequential download queue (one at a time)
     const position = enqueueDownload(() =>
       runBackgroundDownload({
         songId, tempStem, target, title, artist, album, duration,
@@ -306,7 +339,6 @@ export async function POST(req: NextRequest) {
     );
     console.log(`[dl-queue] Queued "${title}" at position ${position}, queue length: ${queueLength()}`);
 
-    // Return immediately with the pending song
     return NextResponse.json({
       success: true,
       pending: true,

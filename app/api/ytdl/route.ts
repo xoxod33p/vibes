@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
+import { songsDb, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 const execFileAsync = promisify(execFile);
@@ -166,20 +166,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const stmt = db.prepare(`
-      INSERT INTO songs (id, title, artist, album, duration, filename, cover, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
-      songId,
+    await songsDb.create({
+      id: songId,
       title,
       artist,
       album,
       duration,
-      finalFilename,
-      coverFilename,
-      session?.userId || null
-    );
+      filename: finalFilename,
+      cover: coverFilename,
+      user_id: session?.userId || null,
+      status: "ready",
+    });
 
     return NextResponse.json({
       success: true,

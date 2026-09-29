@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
+import { songsDb, playlistsDb, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { enqueueDownload, queueLength } from "@/lib/download-queue";
 import {
@@ -136,7 +136,7 @@ async function runBackgroundDownload(opts: {
     console.error("[download:bg] yt-dlp error:", errorMsg);
 
     try {
-      db.prepare("UPDATE songs SET status = 'error' WHERE id = ?").run(songId);
+      await songsDb.update(songId, { status: "error" });
     } catch {}
 
     broadcastDownloadError(songId, errorMsg);
@@ -159,7 +159,7 @@ async function runBackgroundDownload(opts: {
   const downloadedName = files.find((f) => f.startsWith(tempStem) && !f.endsWith(".pending"));
   if (!downloadedName) {
     console.error("[download:bg] Downloaded file not found for stem:", tempStem);
-    db.prepare("UPDATE songs SET status = 'error' WHERE id = ?").run(songId);
+    await songsDb.update(songId, { status: "error" }).catch(() => {});
     broadcastDownloadError(songId, "Audio file not saved to disk");
     return;
   }
@@ -204,23 +204,20 @@ async function runBackgroundDownload(opts: {
 
   // Update DB record
   try {
-    db.prepare(`
-      UPDATE songs
-      SET title = ?, artist = ?, album = ?, duration = ?, filename = ?, cover = ?, status = 'ready'
-      WHERE id = ?
-    `).run(finalTitle, finalArtist, finalAlbum, finalDuration, finalFilename, coverFilename, songId);
+    await songsDb.update(songId, {
+      title: finalTitle,
+      artist: finalArtist,
+      album: finalAlbum,
+      duration: finalDuration,
+      filename: finalFilename,
+      cover: coverFilename,
+      status: "ready",
+    });
 
     // Associate with playlist if needed
     if (playlistId) {
       try {
-        const posRow = db
-          .prepare("SELECT COUNT(*) as count FROM playlist_songs WHERE playlist_id = ?")
-          .get(playlistId) as { count: number } | undefined;
-        const nextPos = posRow?.count ?? 0;
-        db.prepare(`
-          INSERT OR IGNORE INTO playlist_songs (playlist_id, song_id, position)
-          VALUES (?, ?, ?)
-        `).run(playlistId, songId, nextPos);
+        await playlistsDb.addSong(playlistId, songId);
       } catch (plErr) {
         console.warn("[download:bg] Could not associate song with playlist:", plErr);
       }
@@ -280,10 +277,17 @@ export async function POST(req: NextRequest) {
 
     // Insert a pending placeholder immediately so it shows in the library
     const pendingFilename = `${tempStem}.pending`;
-    db.prepare(`
-      INSERT INTO songs (id, title, artist, album, duration, filename, cover, user_id, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-    `).run(songId, title, artist, album, duration, pendingFilename, null, session.userId);
+    await songsDb.create({
+      id: songId,
+      title,
+      artist,
+      album,
+      duration,
+      filename: pendingFilename,
+      cover: null,
+      user_id: session.userId,
+      status: "pending",
+    });
 
     broadcastDownloadProgress({
       songId,

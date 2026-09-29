@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { favoritesDb } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function POST(
@@ -14,11 +14,7 @@ export async function POST(
   }
 
   try {
-    const stmt = db.prepare(
-      "INSERT OR IGNORE INTO favorites (user_id, song_id) VALUES (?, ?)"
-    );
-    stmt.run(session.userId, songId);
-
+    await favoritesDb.add(session.userId, songId);
     return NextResponse.json({ success: true, favorited: true });
   } catch (error) {
     console.error("Add favorite error:", error);
@@ -38,9 +34,7 @@ export async function DELETE(
   }
 
   try {
-    const stmt = db.prepare("DELETE FROM favorites WHERE user_id = ? AND song_id = ?");
-    stmt.run(session.userId, songId);
-
+    await favoritesDb.remove(session.userId, songId);
     return NextResponse.json({ success: true, favorited: false });
   } catch (error) {
     console.error("Remove favorite error:", error);

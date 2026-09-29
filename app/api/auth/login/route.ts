@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { usersDb } from "@/lib/db";
 import { verifyPassword, createSessionToken, getSessionCookieOptions, COOKIE_NAME } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
-
-interface UserRow {
-  id: string;
-  username: string;
-  email: string;
-  password_hash: string;
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,13 +17,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Allow signing in with either username OR registered email
-    const user = db.prepare(`
-      SELECT * FROM users 
-      WHERE LOWER(username) = LOWER(?) 
-         OR (email != '' AND LOWER(email) = LOWER(?))
-      LIMIT 1
-    `).get(identifier, identifier) as UserRow | undefined;
+    // Find user by username OR email
+    const user = await usersDb.findByUsernameOrEmail(identifier);
 
     let isMatch = false;
     if (user) {
@@ -68,4 +56,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to login" }, { status: 500 });
   }
 }
-

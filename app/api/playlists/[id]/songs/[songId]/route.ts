@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { playlistsDb } from "@/lib/db";
 
 export async function DELETE(
   _req: NextRequest,
@@ -7,11 +7,7 @@ export async function DELETE(
 ) {
   const { id: playlistId, songId } = await params;
   try {
-    const stmt = db.prepare(
-      "DELETE FROM playlist_songs WHERE playlist_id = ? AND song_id = ?"
-    );
-    stmt.run(playlistId, songId);
-
+    await playlistsDb.removeSong(playlistId, songId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Remove from playlist error:", error);

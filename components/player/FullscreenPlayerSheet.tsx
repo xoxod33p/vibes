@@ -16,7 +16,7 @@ import {
   SlidersHorizontal,
   Music,
 } from "lucide-react";
-import { useAudio } from "@/lib/audio-context";
+import { useAudio, useAudioTime } from "@/lib/audio-context";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { formatTime, cn } from "@/lib/utils";
@@ -26,11 +26,10 @@ interface FullscreenPlayerSheetProps {
 }
 
 export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProps) {
+  const { currentTime, duration } = useAudioTime();
   const {
     currentSong,
     isPlaying,
-    currentTime,
-    duration,
     volume,
     isMuted,
     isShuffle,

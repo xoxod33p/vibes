@@ -40,9 +40,13 @@ if (isBuild) {
     dbInstance = new DatabaseSync(DB_PATH);
     globalThis.__vibes_db = dbInstance;
 
-    // WAL mode + busy timeout to handle concurrent access
+    // WAL mode + busy timeout + performance PRAGMAs to handle high-throughput concurrent access
     dbInstance.exec("PRAGMA journal_mode = WAL");
     dbInstance.exec("PRAGMA busy_timeout = 5000");
+    dbInstance.exec("PRAGMA synchronous = NORMAL");
+    dbInstance.exec("PRAGMA cache_size = -20000"); // 20MB cache
+    dbInstance.exec("PRAGMA mmap_size = 268435456"); // 256MB memory mapping
+    dbInstance.exec("PRAGMA temp_store = MEMORY");
 
     // Enable foreign key enforcement (SQLite has them off by default)
     dbInstance.exec("PRAGMA foreign_keys = ON");
@@ -92,6 +96,14 @@ if (isBuild) {
           FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
           FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
       );
+
+      -- Fast query indices
+      CREATE INDEX IF NOT EXISTS idx_songs_user_id ON songs(user_id);
+      CREATE INDEX IF NOT EXISTS idx_songs_uploaded_at ON songs(uploaded_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_songs_status ON songs(status);
+      CREATE INDEX IF NOT EXISTS idx_playlists_user_id ON playlists(user_id);
+      CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist ON playlist_songs(playlist_id, position);
+      CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
     `);
 
     // Migrate: add status column to existing songs tables

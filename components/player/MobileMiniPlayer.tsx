@@ -3,15 +3,14 @@
 import React from "react";
 import Image from "next/image";
 import { Play, Pause, SkipForward, Disc3 } from "lucide-react";
-import { useAudio } from "@/lib/audio-context";
+import { useAudio, useAudioTime } from "@/lib/audio-context";
 import { cn } from "@/lib/utils";
 
 export function MobileMiniPlayer() {
+  const { currentTime, duration } = useAudioTime();
   const {
     currentSong,
     isPlaying,
-    currentTime,
-    duration,
     togglePlay,
     nextTrack,
     setIsMobileFullscreen,

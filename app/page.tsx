@@ -4,7 +4,9 @@ import React, { useState } from "react";
 import { useAudio } from "@/lib/audio-context";
 import { Song } from "@/lib/types";
 
-// Layout components
+import dynamic from "next/dynamic";
+
+// Layout components (core shell)
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MobileHeader } from "@/components/layout/MobileHeader";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
@@ -12,23 +14,49 @@ import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 // Player components
 import { DesktopNowPlaying } from "@/components/player/DesktopNowPlaying";
 import { MobileMiniPlayer } from "@/components/player/MobileMiniPlayer";
-import { FullscreenPlayerSheet } from "@/components/player/FullscreenPlayerSheet";
 
-// View components
+// Core default view
 import { LibraryView } from "@/components/views/LibraryView";
-import { PlaylistsView } from "@/components/views/PlaylistsView";
-import { FavoritesView } from "@/components/views/FavoritesView";
-import { AccountView } from "@/components/views/AccountView";
-import { DownloadsView } from "@/components/views/DownloadsView";
 
-// Modal components
-import { YtdlModal } from "@/components/modals/YtdlModal";
-import { AuthModal } from "@/components/modals/AuthModal";
-import { CreatePlaylistModal } from "@/components/modals/CreatePlaylistModal";
-import { AddToPlaylistModal } from "@/components/modals/AddToPlaylistModal";
-import { EditSongModal } from "@/components/modals/EditSongModal";
-import { QueueDrawer } from "@/components/modals/QueueDrawer";
-import { SettingsModal } from "@/components/modals/SettingsModal";
+// Lazy-loaded secondary views
+const PlaylistsView = dynamic(
+  () => import("@/components/views/PlaylistsView").then((m) => m.PlaylistsView)
+);
+const FavoritesView = dynamic(
+  () => import("@/components/views/FavoritesView").then((m) => m.FavoritesView)
+);
+const AccountView = dynamic(
+  () => import("@/components/views/AccountView").then((m) => m.AccountView)
+);
+const DownloadsView = dynamic(
+  () => import("@/components/views/DownloadsView").then((m) => m.DownloadsView)
+);
+
+// Lazy-loaded player overlays & modals
+const FullscreenPlayerSheet = dynamic(
+  () => import("@/components/player/FullscreenPlayerSheet").then((m) => m.FullscreenPlayerSheet)
+);
+const YtdlModal = dynamic(
+  () => import("@/components/modals/YtdlModal").then((m) => m.YtdlModal)
+);
+const AuthModal = dynamic(
+  () => import("@/components/modals/AuthModal").then((m) => m.AuthModal)
+);
+const CreatePlaylistModal = dynamic(
+  () => import("@/components/modals/CreatePlaylistModal").then((m) => m.CreatePlaylistModal)
+);
+const AddToPlaylistModal = dynamic(
+  () => import("@/components/modals/AddToPlaylistModal").then((m) => m.AddToPlaylistModal)
+);
+const EditSongModal = dynamic(
+  () => import("@/components/modals/EditSongModal").then((m) => m.EditSongModal)
+);
+const QueueDrawer = dynamic(
+  () => import("@/components/modals/QueueDrawer").then((m) => m.QueueDrawer)
+);
+const SettingsModal = dynamic(
+  () => import("@/components/modals/SettingsModal").then((m) => m.SettingsModal)
+);
 
 import { toast } from "sonner";
 
@@ -155,23 +183,29 @@ export default function HomePage() {
       {/* Immersive Turntable Fullscreen Sheet */}
       <FullscreenPlayerSheet onOpenQueue={() => setQueueOpen(true)} />
 
-      {/* Modals & Dialogs */}
-      <YtdlModal open={ytdlOpen} onOpenChange={setYtdlOpen} />
-      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
-      <CreatePlaylistModal open={createPlaylistOpen} onOpenChange={setCreatePlaylistOpen} />
-      <AddToPlaylistModal
-        song={addToPlaylistSong}
-        open={!!addToPlaylistSong}
-        onOpenChange={(open) => !open && setAddToPlaylistSong(null)}
-        onOpenCreatePlaylist={() => setCreatePlaylistOpen(true)}
-      />
-      <EditSongModal
-        song={editSong}
-        open={!!editSong}
-        onOpenChange={(open) => !open && setEditSong(null)}
-      />
-      <QueueDrawer open={queueOpen} onOpenChange={setQueueOpen} />
-      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {/* Modals & Dialogs - dynamically mounted when triggered */}
+      {ytdlOpen && <YtdlModal open={ytdlOpen} onOpenChange={setYtdlOpen} />}
+      {authOpen && <AuthModal open={authOpen} onOpenChange={setAuthOpen} />}
+      {createPlaylistOpen && (
+        <CreatePlaylistModal open={createPlaylistOpen} onOpenChange={setCreatePlaylistOpen} />
+      )}
+      {addToPlaylistSong && (
+        <AddToPlaylistModal
+          song={addToPlaylistSong}
+          open={!!addToPlaylistSong}
+          onOpenChange={(open) => !open && setAddToPlaylistSong(null)}
+          onOpenCreatePlaylist={() => setCreatePlaylistOpen(true)}
+        />
+      )}
+      {editSong && (
+        <EditSongModal
+          song={editSong}
+          open={!!editSong}
+          onOpenChange={(open) => !open && setEditSong(null)}
+        />
+      )}
+      {queueOpen && <QueueDrawer open={queueOpen} onOpenChange={setQueueOpen} />}
+      {settingsOpen && <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />}
     </div>
   );
 }

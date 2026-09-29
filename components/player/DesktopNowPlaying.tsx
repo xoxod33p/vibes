@@ -15,7 +15,7 @@ import {
   Disc3,
   SlidersHorizontal,
 } from "lucide-react";
-import { useAudio } from "@/lib/audio-context";
+import { useAudio, useAudioTime } from "@/lib/audio-context";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,11 +33,10 @@ interface DesktopNowPlayingProps {
 }
 
 export function DesktopNowPlaying({ onOpenQueue, onOpenSettings }: DesktopNowPlayingProps) {
+  const { currentTime, duration } = useAudioTime();
   const {
     currentSong,
     isPlaying,
-    currentTime,
-    duration,
     volume,
     isMuted,
     isShuffle,

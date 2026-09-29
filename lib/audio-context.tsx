@@ -1,17 +1,29 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Song, Playlist, User, WsDownloadProgress } from "./types";
 import { toast } from "sonner";
 
 export type RepeatMode = "off" | "all" | "one";
 export type ThemeId = "theme-violet" | "theme-cyan" | "theme-emerald" | "theme-amber";
 
+export interface AudioTimeContextType {
+  currentTime: number;
+  duration: number;
+}
+
+const AudioTimeContext = createContext<AudioTimeContextType>({
+  currentTime: 0,
+  duration: 0,
+});
+
+export function useAudioTime() {
+  return useContext(AudioTimeContext);
+}
+
 interface AudioContextType {
   currentSong: Song | null;
   isPlaying: boolean;
-  currentTime: number;
-  duration: number;
   volume: number;
   isMuted: boolean;
   queue: Song[];
@@ -49,6 +61,8 @@ interface AudioContextType {
   refreshSongs: (searchQuery?: string) => Promise<void>;
   refreshPlaylists: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  getCurrentTime: () => number;
+  getDuration: () => number;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -59,9 +73,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const handleTrackEndedRef = useRef<() => void>(() => {});
 
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const currentSongRef = useRef<Song | null>(null);
+  useEffect(() => {
+    currentSongRef.current = currentSong;
+  }, [currentSong]);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(0);
   const [volume, setVolumeState] = useState<number>(0.8);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [queue, setQueue] = useState<Song[]>([]);
@@ -86,16 +103,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     audio.preload = "auto";
     audioRef.current = audio;
 
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
-    const handleLoadedMetadata = () => {
-      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
-        setDuration(audio.duration);
-      }
-    };
-
     const handleEnded = () => {
       handleTrackEndedRef.current();
     };
@@ -103,8 +110,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("play", handlePlay);
     audio.addEventListener("pause", handlePause);
@@ -135,8 +140,6 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
 
     return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
@@ -145,18 +148,18 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Update theme class on HTML element
-  const setTheme = (newTheme: ThemeId) => {
+  const setTheme = useCallback((newTheme: ThemeId) => {
     setThemeState(newTheme);
     localStorage.setItem("vibes_theme", newTheme);
     document.documentElement.className = newTheme;
-  };
+  }, []);
 
   // Audio quality
-  const setAudioQuality = (q: string) => {
+  const setAudioQuality = useCallback((q: string) => {
     setAudioQualityState(q);
     localStorage.setItem("vibes_quality", q);
     toast.success(`Quality set to ${q === "original" ? "Original" : `${q} kbps`}`);
-  };
+  }, []);
 
   // Fetch initial songs, playlists, user, favorites
   const refreshSongs = useCallback(async (query: string = "") => {
@@ -443,15 +446,14 @@ function getAuthHeaders(): Record<string, string> {
     }
   }, [currentSong, playSong]);
 
-  const pause = () => audioRef.current?.pause();
-  const resume = () => audioRef.current?.play().catch(() => {});
+  const pause = useCallback(() => audioRef.current?.pause(), []);
+  const resume = useCallback(() => audioRef.current?.play().catch(() => {}), []);
 
-  const seek = (time: number) => {
+  const seek = useCallback((time: number) => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = time;
-    setCurrentTime(time);
-  };
+  }, []);
 
   const nextTrack = useCallback(() => {
     if (queue.length === 0) return;
@@ -485,7 +487,6 @@ function getAuthHeaders(): Record<string, string> {
     const audio = audioRef.current;
     if (audio && audio.currentTime > 3) {
       audio.currentTime = 0;
-      setCurrentTime(0);
       return;
     }
 
@@ -518,29 +519,25 @@ function getAuthHeaders(): Record<string, string> {
     handleTrackEndedRef.current = handleTrackEnded;
   }, [handleTrackEnded]);
 
-  const setVolume = (val: number) => {
+  const setVolume = useCallback((val: number) => {
     const clamped = Math.max(0, Math.min(1, val));
     setVolumeState(clamped);
     if (audioRef.current) {
       audioRef.current.volume = clamped;
     }
     localStorage.setItem("vibes_volume", clamped.toString());
-    if (clamped > 0 && isMuted) {
-      setIsMuted(false);
-    }
-  };
+    setIsMuted((prev) => (clamped > 0 && prev ? false : prev));
+  }, []);
 
-  const toggleMute = () => {
+  const toggleMute = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (isMuted) {
-      audio.muted = false;
-      setIsMuted(false);
-    } else {
-      audio.muted = true;
-      setIsMuted(true);
-    }
-  };
+    setIsMuted((prev) => {
+      const next = !prev;
+      audio.muted = next;
+      return next;
+    });
+  }, []);
 
   const toggleShuffle = useCallback(() => {
     setIsShuffle((prev) => {
@@ -565,27 +562,31 @@ function getAuthHeaders(): Record<string, string> {
     });
   }, []);
 
-  const addToQueue = (song: Song) => {
+  const addToQueue = useCallback((song: Song) => {
     setQueue((prev) => [...prev, song]);
     toast.success(`Added "${song.title}" to queue`);
-  };
+  }, []);
 
-  const removeFromQueue = (index: number) => {
+  const removeFromQueue = useCallback((index: number) => {
     setQueue((prev) => prev.filter((_, i) => i !== index));
-    if (index === queueIndex) {
-      nextTrack();
-    } else if (index < queueIndex) {
-      setQueueIndex((prev) => prev - 1);
-    }
-  };
+    setQueueIndex((prev) => {
+      if (index === prev) {
+        nextTrack();
+        return prev;
+      } else if (index < prev) {
+        return prev - 1;
+      }
+      return prev;
+    });
+  }, [nextTrack]);
 
-  const clearQueue = () => {
+  const clearQueue = useCallback(() => {
     setQueue([]);
     setQueueIndex(-1);
     toast("Queue cleared");
-  };
+  }, []);
 
-  const toggleFavorite = async (songId: string): Promise<boolean> => {
+  const toggleFavorite = useCallback(async (songId: string): Promise<boolean> => {
     if (!user) {
       toast.error("Please login to save favorites");
       return false;
@@ -615,7 +616,7 @@ function getAuthHeaders(): Record<string, string> {
       toast.error("Failed to update favorite");
     }
     return isFav;
-  };
+  }, [user, favorites]);
 
   // Setup MediaSession handlers
   useEffect(() => {
@@ -646,14 +647,20 @@ function getAuthHeaders(): Record<string, string> {
         togglePlay();
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
-        seek(Math.min(duration, currentTime + 5));
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
+        }
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        seek(Math.max(0, currentTime - 5));
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = Math.max(0, audio.currentTime - 5);
+        }
       } else if (e.key === "l" || e.key === "L") {
-        if (currentSong) {
+        if (currentSongRef.current) {
           e.preventDefault();
-          toggleFavorite(currentSong.id);
+          toggleFavorite(currentSongRef.current.id);
         }
       } else if (e.key === "s" || e.key === "S") {
         e.preventDefault();
@@ -666,56 +673,164 @@ function getAuthHeaders(): Record<string, string> {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentTime, duration, currentSong, togglePlay, toggleShuffle, toggleRepeat, toggleFavorite]);
+  }, [togglePlay, toggleShuffle, toggleRepeat, toggleFavorite]);
+
+  const value = useMemo<AudioContextType>(
+    () => ({
+      currentSong,
+      isPlaying,
+      volume,
+      isMuted,
+      queue,
+      queueIndex,
+      isShuffle,
+      repeatMode,
+      audioQuality,
+      theme,
+      user,
+      favorites,
+      allSongs,
+      playlists,
+      isLoadingSongs,
+      activeDownloads,
+      isWsConnected,
+      isMobileFullscreen,
+      setIsMobileFullscreen,
+      playSong,
+      togglePlay,
+      pause,
+      resume,
+      seek,
+      nextTrack,
+      prevTrack,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      setAudioQuality,
+      setTheme,
+      addToQueue,
+      removeFromQueue,
+      clearQueue,
+      toggleFavorite,
+      refreshSongs,
+      refreshPlaylists,
+      refreshUser,
+      getCurrentTime: () => audioRef.current?.currentTime ?? 0,
+      getDuration: () => audioRef.current?.duration ?? 0,
+    }),
+    [
+      currentSong,
+      isPlaying,
+      volume,
+      isMuted,
+      queue,
+      queueIndex,
+      isShuffle,
+      repeatMode,
+      audioQuality,
+      theme,
+      user,
+      favorites,
+      allSongs,
+      playlists,
+      isLoadingSongs,
+      activeDownloads,
+      isWsConnected,
+      isMobileFullscreen,
+      setIsMobileFullscreen,
+      playSong,
+      togglePlay,
+      pause,
+      resume,
+      seek,
+      nextTrack,
+      prevTrack,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      setAudioQuality,
+      setTheme,
+      addToQueue,
+      removeFromQueue,
+      clearQueue,
+      toggleFavorite,
+      refreshSongs,
+      refreshPlaylists,
+      refreshUser,
+    ]
+  );
 
   return (
-    <AudioContext.Provider
-      value={{
-        currentSong,
-        isPlaying,
-        currentTime,
-        duration,
-        volume,
-        isMuted,
-        queue,
-        queueIndex,
-        isShuffle,
-        repeatMode,
-        audioQuality,
-        theme,
-        user,
-        favorites,
-        allSongs,
-        playlists,
-        isLoadingSongs,
-        activeDownloads,
-        isWsConnected,
-        isMobileFullscreen,
-        setIsMobileFullscreen,
-        playSong,
-        togglePlay,
-        pause,
-        resume,
-        seek,
-        nextTrack,
-        prevTrack,
-        setVolume,
-        toggleMute,
-        toggleShuffle,
-        toggleRepeat,
-        setAudioQuality,
-        setTheme,
-        addToQueue,
-        removeFromQueue,
-        clearQueue,
-        toggleFavorite,
-        refreshSongs,
-        refreshPlaylists,
-        refreshUser,
-      }}
-    >
-      {children}
+    <AudioContext.Provider value={value}>
+      <AudioTimeProvider audioRef={audioRef}>
+        {children}
+      </AudioTimeProvider>
     </AudioContext.Provider>
+  );
+}
+
+function AudioTimeProvider({
+  audioRef,
+  children,
+}: {
+  audioRef: React.RefObject<HTMLAudioElement | null>;
+  children: React.ReactNode;
+}) {
+  const [time, setTime] = useState<AudioTimeContextType>({ currentTime: 0, duration: 0 });
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    let lastTime = 0;
+    const handleTimeUpdate = () => {
+      const cur = audio.currentTime;
+      // Throttle updates to ~4Hz to minimize CPU work while keeping scrubber completely smooth
+      if (Math.abs(cur - lastTime) >= 0.25 || audio.paused) {
+        lastTime = cur;
+        setTime((prev) => ({
+          currentTime: cur,
+          duration: audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) ? audio.duration : prev.duration,
+        }));
+      }
+    };
+
+    const handleLoadedMetadata = () => {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        setTime((prev) => ({
+          ...prev,
+          duration: audio.duration,
+        }));
+      }
+    };
+
+    const handleSeeking = () => {
+      lastTime = audio.currentTime;
+      setTime((prev) => ({
+        currentTime: audio.currentTime,
+        duration: audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) ? audio.duration : prev.duration,
+      }));
+    };
+
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("seeking", handleSeeking);
+    audio.addEventListener("seeked", handleSeeking);
+
+    return () => {
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("seeking", handleSeeking);
+      audio.removeEventListener("seeked", handleSeeking);
+    };
+  }, [audioRef]);
+
+  return (
+    <AudioTimeContext.Provider value={time}>
+      {children}
+    </AudioTimeContext.Provider>
   );
 }
 

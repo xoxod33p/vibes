@@ -64,12 +64,15 @@ export async function POST(req: NextRequest) {
 
     const attempts: Array<{ useCookies: boolean; client: string }> = [];
     if (cookiesFile) {
+      attempts.push({ useCookies: true, client: "" });
+      attempts.push({ useCookies: true, client: "default,web_safari,web_embedded" });
       attempts.push({ useCookies: true, client: "android,web" });
       attempts.push({ useCookies: false, client: "android,web" });
       attempts.push({ useCookies: false, client: "ios,android,web" });
     } else {
       attempts.push({ useCookies: false, client: "android,web" });
       attempts.push({ useCookies: false, client: "ios,android,web" });
+      attempts.push({ useCookies: false, client: "" });
     }
 
     let stdout = "";
@@ -86,8 +89,12 @@ export async function POST(req: NextRequest) {
         "--no-warnings",
         "--print-json",
         "--concurrent-fragments", "5",
-        "--extractor-args", `youtube:player_client=${attempt.client}`,
+        "--no-check-certificates",
       ];
+
+      if (attempt.client) {
+        args.push("--extractor-args", `youtube:player_client=${attempt.client}`);
+      }
 
       if (attempt.useCookies && cookiesFile) {
         args.push("--cookies", cookiesFile);

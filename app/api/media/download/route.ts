@@ -39,6 +39,12 @@ async function runBackgroundDownload(opts: {
   });
 
   const cookiesFile = getCookiesPath();
+  if (cookiesFile) {
+    console.log(`[download:bg] Using cookies file: ${cookiesFile}`);
+  } else {
+    console.log("[download:bg] No cookies file found (checked COOKIES_PATH, ./cookies.txt, /home/admin/vibes/cookies.txt)");
+  }
+
   const extendedPath = [
     process.env.PATH || "",
     "/usr/local/bin",
@@ -61,8 +67,12 @@ async function runBackgroundDownload(opts: {
         "--newline",
         "--progress-template", "VIBES_PROG:%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s|%(progress._total_bytes_estimate_str)s",
         "--concurrent-fragments", "5",
-        "--extractor-args", `youtube:player_client=${clientArg}`,
+        "--no-check-certificates",
       ];
+
+      if (clientArg) {
+        args.push("--extractor-args", `youtube:player_client=${clientArg}`);
+      }
 
       if (useCookies && cookiesFile) {
         args.push("--cookies", cookiesFile);
@@ -132,12 +142,15 @@ async function runBackgroundDownload(opts: {
 
   const attempts: Array<{ useCookies: boolean; client: string }> = [];
   if (cookiesFile) {
+    attempts.push({ useCookies: true, client: "" });
+    attempts.push({ useCookies: true, client: "default,web_safari,web_embedded" });
     attempts.push({ useCookies: true, client: "android,web" });
     attempts.push({ useCookies: false, client: "android,web" });
     attempts.push({ useCookies: false, client: "ios,android,web" });
   } else {
     attempts.push({ useCookies: false, client: "android,web" });
     attempts.push({ useCookies: false, client: "ios,android,web" });
+    attempts.push({ useCookies: false, client: "" });
   }
 
   let finalStdout = "";
@@ -147,6 +160,7 @@ async function runBackgroundDownload(opts: {
   for (let i = 0; i < attempts.length; i++) {
     const attempt = attempts[i];
     if (i > 0) {
+      console.log(`[download:bg] Attempt ${i + 1}/${attempts.length} (cookies=${attempt.useCookies}, client=${attempt.client || "default"})...`);
       broadcastDownloadProgress({
         songId,
         title,

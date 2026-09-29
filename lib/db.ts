@@ -414,7 +414,33 @@ export const favoritesDb = {
 };
 
 export function getCookiesPath(): string | null {
-  return process.env.COOKIES_PATH || null;
+  const envPath = process.env.COOKIES_PATH;
+  if (envPath) {
+    try {
+      if (fs.existsSync(envPath)) {
+        const stat = fs.statSync(envPath);
+        if (stat.isFile() && stat.size > 0) return envPath;
+      }
+    } catch {}
+  }
+
+  const rootCookies = path.join(BASE_DIR, "cookies.txt");
+  try {
+    if (fs.existsSync(rootCookies)) {
+      const stat = fs.statSync(rootCookies);
+      if (stat.isFile() && stat.size > 0) return rootCookies;
+    }
+  } catch {}
+
+  const linuxCookies = "/home/admin/vibes/cookies.txt";
+  try {
+    if (fs.existsSync(linuxCookies)) {
+      const stat = fs.statSync(linuxCookies);
+      if (stat.isFile() && stat.size > 0) return linuxCookies;
+    }
+  } catch {}
+
+  return null;
 }
 
 export function getYtdlpPath(): string {

@@ -1,12 +1,12 @@
 # =============================================================
 # Multi-stage Dockerfile for Vibes Music Player
-# Includes Node.js 20, ffmpeg, python3, and yt-dlp
+# Includes Node.js 22, ffmpeg, python3, and yt-dlp
 # =============================================================
 
 # -------------------------------------------------------------
 # Base Image: System runtime dependencies
 # -------------------------------------------------------------
-FROM node:20-bookworm-slim AS base
+FROM node:22-bookworm-slim AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 

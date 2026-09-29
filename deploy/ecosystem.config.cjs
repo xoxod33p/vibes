@@ -3,8 +3,7 @@ module.exports = {
     {
       name: "vibes",
       cwd: "/home/admin/vibes",
-      script: "node_modules/next/dist/bin/next",
-      args: "start -p 5000",
+      script: "server.js",
       instances: 1,
       autorestart: true,
       watch: false,

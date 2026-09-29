@@ -6,8 +6,8 @@ const { parse } = require("url");
 const next = require("next");
 const { WebSocketServer } = require("ws");
 
-const isDev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
-process.env.NODE_ENV = isDev ? "development" : (process.env.NODE_ENV || "production");
+const isDev = process.argv.includes("--dev");
+process.env.NODE_ENV = isDev ? "development" : "production";
 
 const dev = isDev;
 const hostname = process.env.HOSTNAME || "0.0.0.0";

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { useAudio } from "@/lib/audio-context";
 import { toast } from "sonner";
-import { auth, googleProvider } from "@/lib/firebase-client";
+import { getClientAuth } from "@/lib/firebase-client";
 import { signInWithPopup } from "firebase/auth";
 
 interface AuthModalProps {
@@ -26,10 +26,16 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
   const handleGoogleAuth = async () => {
     setError(null);
+    const { auth, provider } = getClientAuth();
+    if (!auth || !provider) {
+      setError("Google Sign-In is not configured on this server. Add NEXT_PUBLIC_FIREBASE_API_KEY in .env");
+      return;
+    }
+
     setGoogleLoading(true);
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
       const res = await fetch("/api/auth/google", {

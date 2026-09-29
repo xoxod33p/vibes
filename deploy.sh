@@ -1,18 +1,18 @@
 #!/bin/bash
-# deploy.sh — pull latest code, rebuild, and restart via PM2
 set -e
 
-echo "==> Pulling latest code..."
-git pull origin main
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "dev")
+
+echo "==> Pulling latest code on branch $BRANCH..."
+git pull origin "$BRANCH"
 
 echo "==> Installing dependencies..."
-npm ci --omit=dev
+npm install
 
-echo "==> Building..."
+echo "==> Building production bundle..."
 npm run build
 
 echo "==> Restarting with PM2..."
-# Start fresh if not already managed, otherwise reload
 pm2 describe vibes > /dev/null 2>&1 \
   && pm2 reload ecosystem.config.js --update-env \
   || pm2 start ecosystem.config.js

@@ -4,7 +4,6 @@ import path from "node:path";
 import fs from "node:fs";
 import { Song, Playlist } from "./types";
 
-// Ensure static media directories exist
 const BASE_DIR = process.cwd();
 const UPLOAD_FOLDER = path.join(BASE_DIR, "uploads");
 const COVERS_FOLDER = path.join(BASE_DIR, "public", "covers");
@@ -21,7 +20,6 @@ for (const dir of [UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR]) {
 const isBuild = process.env.NEXT_PHASE === "phase-production-build";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __vibes_firestore: Firestore | undefined;
 }
 
@@ -33,7 +31,6 @@ function initFirestore(): Firestore {
   if (getApps().length === 0) {
     let credential: Credential | undefined;
 
-    // Option 1: Entire service account JSON as environment variable string
     if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
       try {
         const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
@@ -43,20 +40,6 @@ function initFirestore(): Firestore {
       }
     }
 
-    // Option 2: Individual environment variables
-    if (!credential && process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
-      try {
-        credential = cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-        });
-      } catch (err) {
-        console.error("[firebase] Failed to initialize credentials from env vars:", err);
-      }
-    }
-
-    // Option 3: Service account JSON file
     if (!credential) {
       const filePath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.join(BASE_DIR, "serviceAccountKey.json");
       if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
@@ -70,22 +53,14 @@ function initFirestore(): Firestore {
       }
     }
 
-    // Initialize Firebase app
     try {
       if (credential) {
         initializeApp({ credential });
-      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GCLOUD_PROJECT) {
-        initializeApp();
       } else {
-        // Fallback for build phase or unconfigured local setup
         if (!isBuild) {
-          console.warn(
-            "[firebase] Warning: No Firebase credentials provided. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY or FIREBASE_SERVICE_ACCOUNT_KEY in your environment."
-          );
+          console.warn("[firebase] Warning: No Firebase Service Account JSON provided.");
         }
-        initializeApp({
-          projectId: process.env.FIREBASE_PROJECT_ID || "vibes-music-player",
-        });
+        initializeApp({ projectId: "vibes-music-player" });
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -102,9 +77,6 @@ function initFirestore(): Firestore {
 
 export const db: Firestore = initFirestore();
 
-// ==========================================
-// User Data Access
-// ==========================================
 export interface UserDoc {
   id: string;
   username: string;
@@ -121,13 +93,11 @@ export const usersDb = {
     const lower = identifier.toLowerCase().trim();
     const col = db.collection("users");
 
-    // Match username
     const uSnap = await col.where("username_lower", "==", lower).limit(1).get();
     if (!uSnap.empty) {
       return uSnap.docs[0].data() as UserDoc;
     }
 
-    // Match email
     const eSnap = await col.where("email_lower", "==", lower).limit(1).get();
     if (!eSnap.empty) {
       return eSnap.docs[0].data() as UserDoc;
@@ -181,9 +151,6 @@ export const usersDb = {
   },
 };
 
-// ==========================================
-// Songs Data Access
-// ==========================================
 export const songsDb = {
   async list(q?: string): Promise<Song[]> {
     const snap = await db.collection("songs").get();
@@ -191,13 +158,11 @@ export const songsDb = {
 
     snap.forEach((doc) => {
       const data = doc.data() as Song;
-      // Filter out pending songs from general library list
       if (data.status !== "pending") {
         songs.push(data);
       }
     });
 
-    // In-memory search filter if query is provided
     if (q && q.trim()) {
       const query = q.toLowerCase().trim();
       songs = songs.filter(
@@ -208,7 +173,6 @@ export const songsDb = {
       );
     }
 
-    // Sort newest uploaded first
     songs.sort((a, b) => {
       const tA = new Date(a.uploaded_at || 0).getTime();
       const tB = new Date(b.uploaded_at || 0).getTime();
@@ -250,14 +214,11 @@ export const songsDb = {
     if (!id) return;
     const batch = db.batch();
 
-    // 1. Delete song document
     batch.delete(db.collection("songs").doc(id));
 
-    // 2. Delete all playlist association documents
     const psSnap = await db.collection("playlist_songs").where("song_id", "==", id).get();
     psSnap.forEach((doc) => batch.delete(doc.ref));
 
-    // 3. Delete from favorites
     const favSnap = await db.collection("favorites").where("song_id", "==", id).get();
     favSnap.forEach((doc) => batch.delete(doc.ref));
 
@@ -293,9 +254,6 @@ export const songsDb = {
   },
 };
 
-// ==========================================
-// Playlists Data Access
-// ==========================================
 export const playlistsDb = {
   async list(userId?: string | null): Promise<(Playlist & { song_count: number })[]> {
     const snap = await db.collection("playlists").get();
@@ -304,7 +262,6 @@ export const playlistsDb = {
     for (const doc of snap.docs) {
       const data = doc.data() as Playlist;
       if (!userId || data.user_id === userId || !data.user_id) {
-        // Count songs in this playlist
         const countSnap = await db
           .collection("playlist_songs")
           .where("playlist_id", "==", data.id)
@@ -358,7 +315,6 @@ export const playlistsDb = {
     const batch = db.batch();
     batch.delete(docRef);
 
-    // Clean up playlist_songs
     const psSnap = await db.collection("playlist_songs").where("playlist_id", "==", id).get();
     psSnap.forEach((pDoc) => batch.delete(pDoc.ref));
 
@@ -381,7 +337,6 @@ export const playlistsDb = {
     const songIds = items.map((i) => i.song_id);
     const songs: Song[] = [];
 
-    // Fetch songs in parallel or batches
     for (const songId of songIds) {
       const sDoc = await db.collection("songs").doc(songId).get();
       if (sDoc.exists) {
@@ -416,9 +371,6 @@ export const playlistsDb = {
   },
 };
 
-// ==========================================
-// Favorites Data Access
-// ==========================================
 export const favoritesDb = {
   async list(userId: string): Promise<Song[]> {
     if (!userId) return [];
@@ -461,12 +413,10 @@ export const favoritesDb = {
   },
 };
 
-/** Returns the cookies file path from COOKIES_PATH env, or null if not set. */
 export function getCookiesPath(): string | null {
   return process.env.COOKIES_PATH || null;
 }
 
-/** Returns the yt-dlp binary path from YTDLP_PATH env, or defaults to "yt-dlp". */
 export function getYtdlpPath(): string {
   return process.env.YTDLP_PATH || "yt-dlp";
 }

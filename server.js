@@ -31,16 +31,13 @@ app.prepare().then(() => {
   const wss = new WebSocketServer({ noServer: true });
   globalThis.__vibes_wss = wss;
 
-  // Handle client connections
   wss.on("connection", (ws, req) => {
-    // Add to global client set
     if (!globalThis.__vibes_ws_clients) {
       globalThis.__vibes_ws_clients = new Set();
     }
     const clients = globalThis.__vibes_ws_clients;
     clients.add(ws);
 
-    // Send active downloads state if available
     if (globalThis.__vibes_downloads) {
       const active = Array.from(globalThis.__vibes_downloads.values()).filter(
         (d) => d.status === "pending" || d.status === "downloading" || d.status === "transcoding"
@@ -68,7 +65,6 @@ app.prepare().then(() => {
     });
   });
 
-  // Handle upgrade events for both custom WebSockets and Next.js HMR
   const nextUpgrade = typeof app.getUpgradeHandler === "function" ? app.getUpgradeHandler() : null;
 
   server.on("upgrade", (req, socket, head) => {
@@ -85,11 +81,10 @@ app.prepare().then(() => {
     }
   });
 
-  // Heartbeat interval to keep connections alive
   setInterval(() => {
     if (!globalThis.__vibes_ws_clients) return;
     for (const ws of globalThis.__vibes_ws_clients) {
-      if (ws.readyState === 1 /* OPEN */) {
+      if (ws.readyState === 1) {
         try {
           ws.ping();
         } catch {

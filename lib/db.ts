@@ -49,15 +49,18 @@ function initFirestore(): Firestore {
       ].filter(Boolean) as string[];
 
       for (const filePath of candidates) {
-        if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
-          try {
-            const fileContent = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
-            const parsed = JSON.parse(fileContent);
-            credential = cert(parsed);
-            break;
-          } catch (err) {
-            console.error("[firebase] Failed to read serviceAccountKey file:", err);
+        try {
+          if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
+            const stat = fs.statSync(/*turbopackIgnore: true*/ filePath);
+            if (stat.isFile() && stat.size > 0) {
+              const fileContent = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
+              const parsed = JSON.parse(fileContent);
+              credential = cert(parsed);
+              break;
+            }
           }
+        } catch (err) {
+          console.error("[firebase] Failed to read serviceAccountKey file:", err);
         }
       }
     }

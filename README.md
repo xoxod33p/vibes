@@ -112,6 +112,9 @@ The application will run on port `5000` at [http://localhost:5000](http://localh
 | `FIREBASE_SERVICE_ACCOUNT_KEY` | - | Raw JSON string for Firebase credentials |
 | `GOOGLE_CLIENT_ID` | - | Google OAuth Client ID |
 | `GOOGLE_CLIENT_SECRET` | - | Google OAuth Client Secret |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | - | Firebase Client API Key (for client-side Google auth) |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | - | Firebase Auth Domain |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | - | Firebase Project ID |
 
 ---
 

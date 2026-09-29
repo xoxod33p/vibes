@@ -3,28 +3,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:-}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
+        NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}
+        NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}
+        NEXT_PUBLIC_FIREBASE_APP_ID: ${NEXT_PUBLIC_FIREBASE_APP_ID:-}
     container_name: vibes-music-player
     restart: unless-stopped
     ports:
       - "${PORT:-5000}:5000"
+    env_file:
+      - path: .env
+        required: false
     environment:
       - PORT=5000
       - HOSTNAME=0.0.0.0
       - NODE_ENV=production
-      - SESSION_SECRET=${SESSION_SECRET:-change-this-to-a-secure-random-32-char-key}
-      - COOKIE_SECURE=${COOKIE_SECURE:-false}
-      - YTDLP_PATH=${YTDLP_PATH:-yt-dlp}
-      - COOKIES_PATH=${COOKIES_PATH:-/app/cookies.txt}
-      - FIREBASE_SERVICE_ACCOUNT_PATH=${FIREBASE_SERVICE_ACCOUNT_PATH:-/app/serviceAccountKey.json}
-      - FIREBASE_SERVICE_ACCOUNT_KEY=${FIREBASE_SERVICE_ACCOUNT_KEY:-}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY:-}
-      - NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}
-      - NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}
-      - NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}
-      - NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}
-      - NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID:-}
     volumes:
       # Persistent storage for audio files, album covers, and transcode cache
       - ./uploads:/app/uploads
@@ -33,9 +29,6 @@ services:
       # Optional: Uncomment if using a local cookies file or Firebase key
       # - ./cookies.txt:/app/cookies.txt:ro
       # - ./serviceAccountKey.json:/app/serviceAccountKey.json:ro
-    env_file:
-      - path: .env
-        required: false
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5000/api/songs || exit 1"]
       interval: 30s

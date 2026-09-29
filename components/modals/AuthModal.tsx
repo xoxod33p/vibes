@@ -26,7 +26,7 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
 
   const handleGoogleAuth = async () => {
     setError(null);
-    const { auth, provider } = getClientAuth();
+    const { auth, provider } = await getClientAuth();
     if (!auth || !provider) {
       setError("Google Sign-In is not configured on this server. Add NEXT_PUBLIC_FIREBASE_API_KEY in .env");
       return;

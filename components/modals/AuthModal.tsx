@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { User, Lock, Mail, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useAudio } from "@/lib/audio-context";
 import { toast } from "sonner";
+import { auth, googleProvider } from "@/lib/firebase-client";
+import { signInWithPopup } from "firebase/auth";
 
 interface AuthModalProps {
   open: boolean;
@@ -22,58 +24,45 @@ export function AuthModal({ open, onOpenChange }: AuthModalProps) {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const handleAuthMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      if (event.data?.type === "VIBES_GOOGLE_AUTH_SUCCESS") {
-        setGoogleLoading(false);
-        if (event.data.token) {
+  const handleGoogleAuth = async () => {
+    setError(null);
+    setGoogleLoading(true);
+
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const idToken = await result.user.getIdToken();
+
+      const res = await fetch("/api/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.token) {
           try {
-            localStorage.setItem("vibes_token", event.data.token);
+            localStorage.setItem("vibes_token", data.token);
           } catch {}
         }
         toast.success(
-          event.data.username
-            ? `Welcome, ${event.data.username}!`
+          data.user?.username
+            ? `Welcome, ${data.user.username}!`
             : "Successfully signed in with Google!"
         );
         await refreshUser();
         onOpenChange(false);
-      } else if (event.data?.type === "VIBES_GOOGLE_AUTH_ERROR") {
-        setGoogleLoading(false);
-        setError(event.data.error || "Google authentication failed");
+      } else {
+        setError(data.error || "Failed to authenticate with Google");
       }
-    };
-
-    window.addEventListener("message", handleAuthMessage);
-    return () => window.removeEventListener("message", handleAuthMessage);
-  }, [refreshUser, onOpenChange]);
-
-  const handleGoogleAuth = () => {
-    setError(null);
-    setGoogleLoading(true);
-
-    const width = 500;
-    const height = 600;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-    const popup = window.open(
-      "/api/auth/google",
-      "vibes_google_auth",
-      `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no`
-    );
-
-    if (!popup || popup.closed) {
-      window.location.href = "/api/auth/google";
-      return;
+    } catch (err: unknown) {
+      const authErr = err as { code?: string; message?: string };
+      if (authErr.code !== "auth/popup-closed-by-user" && authErr.code !== "auth/cancelled-popup-request") {
+        setError(authErr.message || "Failed to sign in with Google");
+      }
+    } finally {
+      setGoogleLoading(false);
     }
-
-    const timer = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(timer);
-        setGoogleLoading(false);
-      }
-    }, 1000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

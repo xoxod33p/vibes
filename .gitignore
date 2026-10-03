@@ -44,6 +44,8 @@ next-env.d.ts
 cookies.txt
 *cookies*
 *.cookies
+serviceAccountKey*.json
+*serviceAccount*.json
 
 # database & media storage
 music.db

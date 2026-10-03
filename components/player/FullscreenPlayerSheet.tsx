@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import {
   ChevronDown,
@@ -16,7 +16,7 @@ import {
   SlidersHorizontal,
   Music,
 } from "lucide-react";
-import { useAudio } from "@/lib/audio-context";
+import { useAudio, useAudioTime } from "@/lib/audio-context";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { formatTime, cn } from "@/lib/utils";
@@ -26,11 +26,10 @@ interface FullscreenPlayerSheetProps {
 }
 
 export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProps) {
+  const { currentTime, duration } = useAudioTime();
   const {
     currentSong,
     isPlaying,
-    currentTime,
-    duration,
     volume,
     isMuted,
     isShuffle,
@@ -50,6 +49,13 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
     toggleFavorite,
     setAudioQuality,
   } = useAudio();
+
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubValue, setScrubValue] = useState<number | null>(null);
+
+  const effectiveDuration = duration > 0 ? duration : (currentSong?.duration || 0);
+  const displayTime = isScrubbing && scrubValue !== null ? scrubValue : currentTime;
+  const sliderValue = isScrubbing && scrubValue !== null ? scrubValue : Math.min(currentTime, effectiveDuration || 100);
 
   if (!isMobileFullscreen || !currentSong) return null;
 
@@ -161,15 +167,25 @@ export function FullscreenPlayerSheet({ onOpenQueue }: FullscreenPlayerSheetProp
         {/* Progress Bar & Time */}
         <div className="flex flex-col gap-1.5">
           <Slider
-            value={[currentTime]}
-            max={duration || 100}
+            value={[sliderValue]}
+            min={0}
+            max={effectiveDuration > 0 ? effectiveDuration : 100}
             step={0.5}
-            onValueChange={(val) => seek(val[0])}
+            disabled={!currentSong}
+            onValueChange={(val) => {
+              setIsScrubbing(true);
+              setScrubValue(val[0]);
+            }}
+            onValueCommit={(val) => {
+              seek(val[0]);
+              setIsScrubbing(false);
+              setScrubValue(null);
+            }}
             className="w-full py-2"
           />
           <div className="flex justify-between text-xs font-mono text-neutral-400">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
+            <span>{formatTime(displayTime)}</span>
+            <span>{formatTime(effectiveDuration)}</span>
           </div>
         </div>
 

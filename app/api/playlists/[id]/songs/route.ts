@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { Song } from "@/lib/types";
+import { playlistsDb } from "@/lib/db";
 
 export async function GET(
   _req: NextRequest,
@@ -8,14 +7,8 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const stmt = db.prepare(`
-      SELECT s.* FROM songs s
-      JOIN playlist_songs ps ON ps.song_id = s.id
-      WHERE ps.playlist_id = ?
-      ORDER BY ps.position ASC
-    `);
-    const rows = stmt.all(id) as Song[];
-    return NextResponse.json(rows);
+    const songs = await playlistsDb.getSongs(id);
+    return NextResponse.json(songs);
   } catch (error) {
     console.error("List playlist songs error:", error);
     return NextResponse.json({ error: "Failed to list playlist songs" }, { status: 500 });
@@ -35,17 +28,7 @@ export async function POST(
       return NextResponse.json({ error: "song_id is required" }, { status: 400 });
     }
 
-    const countRow = db.prepare(
-      "SELECT COUNT(*) as count FROM playlist_songs WHERE playlist_id = ?"
-    ).get(playlistId) as { count: number };
-
-    const pos = countRow?.count ?? 0;
-
-    const stmt = db.prepare(`
-      INSERT OR IGNORE INTO playlist_songs (playlist_id, song_id, position)
-      VALUES (?, ?, ?)
-    `);
-    stmt.run(playlistId, songId, pos);
+    await playlistsDb.addSong(playlistId, songId);
 
     return NextResponse.json({ success: true, playlistId, songId });
   } catch (error) {

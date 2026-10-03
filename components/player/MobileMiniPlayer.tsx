@@ -3,15 +3,14 @@
 import React from "react";
 import Image from "next/image";
 import { Play, Pause, SkipForward, Disc3 } from "lucide-react";
-import { useAudio } from "@/lib/audio-context";
+import { useAudio, useAudioTime } from "@/lib/audio-context";
 import { cn } from "@/lib/utils";
 
 export function MobileMiniPlayer() {
+  const { currentTime, duration } = useAudioTime();
   const {
     currentSong,
     isPlaying,
-    currentTime,
-    duration,
     togglePlay,
     nextTrack,
     setIsMobileFullscreen,
@@ -19,7 +18,8 @@ export function MobileMiniPlayer() {
 
   if (!currentSong) return null;
 
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const effectiveDuration = duration > 0 ? duration : (currentSong?.duration || 0);
+  const progressPercent = effectiveDuration > 0 ? Math.min((currentTime / effectiveDuration) * 100, 100) : 0;
   const coverUrl = currentSong.cover ? `/api/covers/${encodeURIComponent(currentSong.cover)}` : null;
 
   return (

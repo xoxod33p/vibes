@@ -1,71 +1,100 @@
-# Deployment Guide: music.xoxod33p.tech (PM2 + Nginx)
+# Production Deployment Guide: music.xoxod33p.tech
 
-This folder contains the production Nginx and PM2 ecosystem configurations for deploying Vibes Music Player to `music.xoxod33p.tech`.
+This folder contains the production Nginx and PM2 configurations for deploying **Vibes Music Player** to `music.xoxod33p.tech`.
 
 ---
 
-## 1. Prerequisites on Server (Ubuntu/Debian)
+## Option A: Automated One-Click Deployment (Recommended)
+
+From the project root:
 
 ```bash
-# Update packages
+chmod +x deploy.sh
+./deploy.sh
+```
+
+The script will automatically:
+1. Pull latest git changes on the active branch
+2. Update `yt-dlp` to the latest release
+3. Install production dependencies via `npm install`
+4. Build the optimized Next.js bundle via `npm run build`
+5. Start or zero-downtime reload the application in PM2 (`ecosystem.config.js`)
+
+---
+
+
+## Option C: Manual Bare-Metal Setup (Ubuntu/Debian)
+
+### 1. Install Prerequisites
+
+```bash
+# Update package repositories
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js 20+ or 22+ (or 24), Python, Nginx, Certbot
+# Install Node.js 20+ or 22+, Nginx, Certbot, Python3, and ffmpeg
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt install -y nodejs nginx certbot python3-certbot-nginx python3-pip git ffmpeg
+sudo apt install -y nodejs nginx certbot python3-certbot-nginx python3-pip git ffmpeg curl
 
-# Install latest yt-dlp directly from GitHub repository
-sudo pip install --upgrade git+https://github.com/yt-dlp/yt-dlp.git --break-system-packages
+# Install standalone yt-dlp binary (recommended over apt)
+sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+sudo chmod a+rx /usr/local/bin/yt-dlp
 
 # Install PM2 globally
 sudo npm install -g pm2
-
-# Verify installations
-node -v
-pm2 -v
-yt-dlp --version
 ```
 
----
-
-## 2. Deploy Application Files
+### 2. Configure Application & Environment
 
 ```bash
-# Clone or copy repository to /home/admin/vibes
+# Navigate to deployment directory
 cd /home/admin/vibes
 
-# Install dependencies and build production bundle
-npm install --production=false
+# Install dependencies and build
+npm install
 npm run build
 ```
 
----
+Configure environment file `.env`:
+```bash
+cp .env.example .env
+nano .env
+```
+Ensure `SESSION_SECRET` is set and `PORT=5000`.
 
-## 3. Run with PM2
+### 3. YouTube Cookies (Prevent 403 Forbidden)
+
+If downloading triggers YouTube bot detection on cloud datacenter IPs:
+1. Export your browser cookies using the **Get cookies.txt LOCALLY** extension.
+2. Upload the file to `/home/admin/vibes/cookies.txt`.
+3. The server auto-detects `cookies.txt` in the project root or `/home/admin/vibes/cookies.txt`.
+
+Keep `yt-dlp` updated:
+```bash
+sudo yt-dlp -U
+```
+
+### 4. Manage with PM2
 
 ```bash
-# Start app with PM2 using the ecosystem configuration
-pm2 start deploy/ecosystem.config.cjs
+# Start app with PM2
+pm2 start ecosystem.config.js
 
-# Save PM2 process list
+# Save process list and enable system boot start
 pm2 save
-
-# Setup PM2 to auto-start on server boot
 pm2 startup
-# (Run the sudo env PATH... command that PM2 outputs)
 ```
 
-Useful PM2 management commands:
+Useful commands:
 ```bash
-pm2 status                  # Check app status
-pm2 logs vibes              # View live server logs
-pm2 reload vibes            # Zero-downtime reload after code updates
-pm2 restart vibes           # Restart the application
+pm2 status                  # Check process status
+pm2 logs vibes              # View live logs
+pm2 reload vibes            # Zero-downtime reload
+pm2 restart vibes           # Restart process
 ```
 
 ---
 
-## 4. Configure Nginx
+## 5. Configure Nginx Reverse Proxy
 
 ```bash
 # Copy Nginx config to sites-available
@@ -74,7 +103,7 @@ sudo cp deploy/music.xoxod33p.tech.conf /etc/nginx/sites-available/music.xoxod33
 # Enable site
 sudo ln -sf /etc/nginx/sites-available/music.xoxod33p.tech.conf /etc/nginx/sites-enabled/
 
-# Test Nginx syntax
+# Test syntax
 sudo nginx -t
 
 # Reload Nginx
@@ -83,12 +112,10 @@ sudo systemctl reload nginx
 
 ---
 
-## 5. Obtain Free SSL Certificate (Certbot)
-
-Run Certbot to generate the Let's Encrypt SSL certificate:
+## 6. Obtain Free SSL Certificate (Certbot)
 
 ```bash
 sudo certbot --nginx -d music.xoxod33p.tech
 ```
 
-Certbot will automatically verify the domain, populate the certificate paths in Nginx, and configure automatic certificate renewals.
+Certbot automatically configures Let's Encrypt certificates, HTTPS redirects, and automated renewal timers.

@@ -4,7 +4,16 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
+import {
+  songsDb,
+  UPLOAD_FOLDER,
+  COVERS_FOLDER,
+  BASE_DIR,
+  getCookiesPath,
+  getYtdlpPath,
+  getFfmpegPath,
+  getExtendedPath,
+} from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 const execFileAsync = promisify(execFile);
@@ -53,49 +62,86 @@ export async function POST(req: NextRequest) {
     const tempStem = `ytdl_${crypto.randomBytes(4).toString("hex")}`;
     const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
-    const args = [
-      "-f", "bestaudio/best",
-      "-x",
-      "--audio-format", "mp3",
-      "--audio-quality", "320K",
-      "-o", outputTemplate,
-      "--no-playlist",
-      "--no-warnings",
-      "--print-json",
-      "--concurrent-fragments", "5",
-    ];
-
     const cookiesFile = getCookiesPath();
+    const ffmpegBinary = getFfmpegPath();
+    const extendedPath = getExtendedPath();
+
+    const attempts: Array<{ useCookies: boolean; client: string }> = [];
     if (cookiesFile) {
-      console.log(`[ytdl] Using cookies file: ${cookiesFile}`);
-      args.push("--cookies", cookiesFile);
+      attempts.push({ useCookies: true, client: "" });
+      attempts.push({ useCookies: true, client: "default,-android_sdkless" });
+      attempts.push({ useCookies: true, client: "web_embedded,web,tv" });
+      attempts.push({ useCookies: true, client: "mweb" });
+      attempts.push({ useCookies: false, client: "" });
+      attempts.push({ useCookies: false, client: "default,-android_sdkless" });
+      attempts.push({ useCookies: false, client: "web_embedded,web,tv" });
+      attempts.push({ useCookies: false, client: "mweb" });
+      attempts.push({ useCookies: false, client: "android,web" });
     } else {
-      console.log("[ytdl] No cookies file found");
+      attempts.push({ useCookies: false, client: "" });
+      attempts.push({ useCookies: false, client: "default,-android_sdkless" });
+      attempts.push({ useCookies: false, client: "web_embedded,web,tv" });
+      attempts.push({ useCookies: false, client: "mweb" });
+      attempts.push({ useCookies: false, client: "android,web" });
     }
 
-    args.push(target);
-
-    const extendedPath = [
-      process.env.PATH || "",
-      "/usr/local/bin",
-      "/usr/bin",
-      "/bin",
-      path.join(process.env.HOME || "/home/admin", ".local/bin"),
-    ].join(process.platform === "win32" ? ";" : ":");
-
     let stdout = "";
-    try {
-      const res = await execFileAsync(getYtdlpPath(), args, {
-        timeout: 120000,
-        env: {
-          ...process.env,
-          PATH: extendedPath,
-        },
-      });
-      stdout = res.stdout;
-    } catch (execErr: unknown) {
-      const execObj = execErr as { message?: string; stderr?: string };
-      const errorMsg = execObj.stderr?.trim() || execObj.message || String(execErr);
+    let lastExecErr: unknown = null;
+
+    for (const attempt of attempts) {
+      const args = [
+        "-f", "bestaudio/best",
+        "-x",
+        "--audio-format", "mp3",
+        "--audio-quality", "320K",
+        "-o", outputTemplate,
+        "--no-playlist",
+        "--no-warnings",
+        "--print-json",
+        "--no-cache-dir",
+        "--no-check-certificates",
+      ];
+
+      if (ffmpegBinary) {
+        args.push("--ffmpeg-location", path.dirname(ffmpegBinary));
+      }
+
+      if (attempt.client) {
+        args.push("--extractor-args", `youtube:player_client=${attempt.client}`);
+      }
+
+      if (attempt.useCookies && cookiesFile) {
+        args.push("--cookies", cookiesFile);
+      }
+
+
+      args.push(target);
+
+      try {
+        const res = await execFileAsync(getYtdlpPath(), args, {
+          timeout: 120000,
+          env: {
+            ...process.env,
+            PATH: extendedPath,
+          },
+        });
+        stdout = res.stdout;
+        lastExecErr = null;
+        break;
+      } catch (execErr: unknown) {
+        lastExecErr = execErr;
+        const execObj = execErr as { message?: string; stderr?: string };
+        const errorMsg = execObj.stderr?.trim() || execObj.message || String(execErr);
+        const isRecoverable = /reloaded|bot|sign in|429|403|forbidden|unable to download|cookie/i.test(errorMsg);
+        if (!isRecoverable && !attempt.useCookies) {
+          break;
+        }
+      }
+    }
+
+    if (lastExecErr || !stdout) {
+      const execObj = lastExecErr as { message?: string; stderr?: string };
+      const errorMsg = execObj?.stderr?.trim() || execObj?.message || String(lastExecErr || "yt-dlp failed");
       console.error("yt-dlp execution error:", errorMsg);
       return NextResponse.json(
         { error: `Download failed: ${errorMsg.slice(0, 300)}` },
@@ -112,7 +158,6 @@ export async function POST(req: NextRequest) {
       console.warn("Could not parse yt-dlp JSON output:", parseErr);
     }
 
-    // Locate the downloaded file
     const files = fs.readdirSync(UPLOAD_FOLDER);
     const downloadedName = files.find((f) => f.startsWith(tempStem));
 
@@ -120,8 +165,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Audio file was not saved" }, { status: 500 });
     }
 
-    const downloadedPath = path.join(UPLOAD_FOLDER, downloadedName);
-    // Keep the actual file extension (m4a, opus, webm) - don't force .mp3
     const finalFilename = downloadedName;
 
     const title = overrideTitle || (info.title as string) || "Audio Track";
@@ -166,20 +209,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const stmt = db.prepare(`
-      INSERT INTO songs (id, title, artist, album, duration, filename, cover, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
-      songId,
+    await songsDb.create({
+      id: songId,
       title,
       artist,
       album,
       duration,
-      finalFilename,
-      coverFilename,
-      session?.userId || null
-    );
+      filename: finalFilename,
+      cover: coverFilename,
+      user_id: session?.userId || null,
+      status: "ready",
+    });
 
     return NextResponse.json({
       success: true,

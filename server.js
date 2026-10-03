@@ -1,10 +1,22 @@
+const path = require("path");
+const { loadEnvConfig } = require("@next/env");
+loadEnvConfig(process.cwd());
+
+// Ensure local bin and node dirs are always in PATH even under PM2 / systemd
+const binDir = path.join(process.cwd(), "bin");
+const nodeBinDir = path.join(binDir, "node", "bin");
+const sep = path.delimiter;
+if (!process.env.PATH || !process.env.PATH.includes(binDir)) {
+  process.env.PATH = `${binDir}${sep}${nodeBinDir}${sep}${process.env.PATH || ""}`;
+}
+
 const { createServer } = require("http");
 const { parse } = require("url");
 const next = require("next");
 const { WebSocketServer } = require("ws");
 
-const isDev = process.argv.includes("--dev") || process.env.NODE_ENV === "development";
-process.env.NODE_ENV = isDev ? "development" : (process.env.NODE_ENV || "production");
+const isDev = process.argv.includes("--dev");
+process.env.NODE_ENV = isDev ? "development" : "production";
 
 const dev = isDev;
 const hostname = process.env.HOSTNAME || "0.0.0.0";
@@ -28,16 +40,13 @@ app.prepare().then(() => {
   const wss = new WebSocketServer({ noServer: true });
   globalThis.__vibes_wss = wss;
 
-  // Handle client connections
   wss.on("connection", (ws, req) => {
-    // Add to global client set
     if (!globalThis.__vibes_ws_clients) {
       globalThis.__vibes_ws_clients = new Set();
     }
     const clients = globalThis.__vibes_ws_clients;
     clients.add(ws);
 
-    // Send active downloads state if available
     if (globalThis.__vibes_downloads) {
       const active = Array.from(globalThis.__vibes_downloads.values()).filter(
         (d) => d.status === "pending" || d.status === "downloading" || d.status === "transcoding"
@@ -65,7 +74,6 @@ app.prepare().then(() => {
     });
   });
 
-  // Handle upgrade events for both custom WebSockets and Next.js HMR
   const nextUpgrade = typeof app.getUpgradeHandler === "function" ? app.getUpgradeHandler() : null;
 
   server.on("upgrade", (req, socket, head) => {
@@ -82,11 +90,10 @@ app.prepare().then(() => {
     }
   });
 
-  // Heartbeat interval to keep connections alive
   setInterval(() => {
     if (!globalThis.__vibes_ws_clients) return;
     for (const ws of globalThis.__vibes_ws_clients) {
-      if (ws.readyState === 1 /* OPEN */) {
+      if (ws.readyState === 1) {
         try {
           ws.ping();
         } catch {

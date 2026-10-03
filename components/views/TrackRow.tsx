@@ -35,7 +35,7 @@ interface TrackRowProps {
   onRemoveFromPlaylist?: (song: Song) => void;
 }
 
-export function TrackRow({
+function TrackRowComponent({
   song,
   index,
   playlistContext,
@@ -224,3 +224,5 @@ export function TrackRow({
     </div>
   );
 }
+
+export const TrackRow = React.memo(TrackRowComponent);

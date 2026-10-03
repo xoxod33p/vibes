@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { db } from "@/lib/db";
+import { usersDb } from "@/lib/db";
 import { hashPassword, createSessionToken, getSessionCookieOptions, COOKIE_NAME } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -31,8 +31,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const existing = db.prepare("SELECT id FROM users WHERE LOWER(username) = LOWER(?)").get(username);
-    if (existing) {
+    const existingUser = await usersDb.findByUsername(username);
+    if (existingUser) {
       return NextResponse.json(
         { error: "Username already taken. Please choose another." },
         { status: 409 }
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (email) {
-      const existingEmail = db.prepare("SELECT id FROM users WHERE LOWER(email) = LOWER(?)").get(email);
+      const existingEmail = await usersDb.findByEmail(email);
       if (existingEmail) {
         return NextResponse.json(
           { error: "An account with this email already exists." },
@@ -52,10 +52,12 @@ export async function POST(req: NextRequest) {
     const userId = crypto.randomUUID();
     const pwHash = hashPassword(password);
 
-    db.prepare(`
-      INSERT INTO users (id, username, email, password_hash)
-      VALUES (?, ?, ?, ?)
-    `).run(userId, username, email, pwHash);
+    await usersDb.create({
+      id: userId,
+      username,
+      email,
+      password_hash: pwHash,
+    });
 
     const token = await createSessionToken({ userId, username });
     const response = NextResponse.json(
@@ -76,4 +78,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to register user" }, { status: 500 });
   }
 }
-

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { Song } from "@/lib/types";
+import { songsDb, UPLOAD_FOLDER, COVERS_FOLDER } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import fs from "node:fs";
+import path from "node:path";
 
 export const dynamic = "force-dynamic";
 
@@ -10,19 +11,8 @@ export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams;
     const q = (searchParams.get("q") || "").trim();
 
-    let rows: unknown[];
-    if (q) {
-      const pattern = `%${q}%`;
-      const stmt = db.prepare(
-        "SELECT * FROM songs WHERE title LIKE ? OR artist LIKE ? OR album LIKE ? ORDER BY uploaded_at DESC"
-      );
-      rows = stmt.all(pattern, pattern, pattern);
-    } else {
-      const stmt = db.prepare("SELECT * FROM songs ORDER BY uploaded_at DESC");
-      rows = stmt.all();
-    }
-
-    return NextResponse.json(rows as Song[]);
+    const songs = await songsDb.list(q);
+    return NextResponse.json(songs);
   } catch (error) {
     console.error("Failed to list songs:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -31,9 +21,6 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const fs = await import("node:fs");
-    const path = await import("node:path");
-    const { UPLOAD_FOLDER, COVERS_FOLDER } = await import("@/lib/db");
     const session = await getCurrentUser(req);
     if (!session?.userId) {
       return NextResponse.json(
@@ -42,9 +29,8 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Select songs belonging strictly to the current user
-    const stmt = db.prepare("SELECT * FROM songs WHERE user_id = ?");
-    const userSongs = stmt.all(session.userId) as Song[];
+    // Delete Firestore records and retrieve songs to delete associated disk files
+    const userSongs = await songsDb.deleteByUserId(session.userId);
 
     if (userSongs.length === 0) {
       return NextResponse.json({
@@ -54,7 +40,7 @@ export async function DELETE(req: NextRequest) {
       });
     }
 
-    // Delete disk files first (outside transaction since FS ops can't be rolled back)
+    // Clean up disk files
     for (const song of userSongs) {
       if (song.filename) {
         const audioPath = path.join(UPLOAD_FOLDER, song.filename);
@@ -77,20 +63,6 @@ export async function DELETE(req: NextRequest) {
           }
         }
       }
-    }
-
-    // Atomic DB cleanup in a single transaction
-    try {
-      db.exec("BEGIN");
-      for (const song of userSongs) {
-        db.prepare("DELETE FROM playlist_songs WHERE song_id = ?").run(song.id);
-        db.prepare("DELETE FROM favorites WHERE song_id = ?").run(song.id);
-      }
-      db.prepare("DELETE FROM songs WHERE user_id = ?").run(session.userId);
-      db.exec("COMMIT");
-    } catch (txErr) {
-      db.exec("ROLLBACK");
-      throw txErr;
     }
 
     return NextResponse.json({

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
-import { db, UPLOAD_FOLDER, COVERS_FOLDER } from "@/lib/db";
-import { Song } from "@/lib/types";
+import { songsDb, UPLOAD_FOLDER, COVERS_FOLDER } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(
@@ -10,8 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const stmt = db.prepare("SELECT * FROM songs WHERE id = ?");
-  const song = stmt.get(id) as Song | undefined;
+  const song = await songsDb.findById(id);
 
   if (!song) {
     return NextResponse.json({ error: "Song not found" }, { status: 404 });
@@ -30,8 +28,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Login required" }, { status: 401 });
   }
 
-  const stmt = db.prepare("SELECT * FROM songs WHERE id = ?");
-  const song = stmt.get(id) as Song | undefined;
+  const song = await songsDb.findById(id);
 
   if (!song) {
     return NextResponse.json({ error: "Song not found" }, { status: 404 });
@@ -46,10 +43,7 @@ export async function PATCH(
   const artist = body.artist !== undefined ? String(body.artist).trim() : song.artist;
   const album = body.album !== undefined ? String(body.album).trim() : song.album;
 
-  const updateStmt = db.prepare(
-    "UPDATE songs SET title = ?, artist = ?, album = ? WHERE id = ?"
-  );
-  updateStmt.run(title, artist, album, id);
+  await songsDb.update(id, { title, artist, album });
 
   return NextResponse.json({ success: true, id, title, artist, album });
 }
@@ -64,8 +58,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Login required" }, { status: 401 });
   }
 
-  const stmt = db.prepare("SELECT * FROM songs WHERE id = ?");
-  const song = stmt.get(id) as Song | undefined;
+  const song = await songsDb.findById(id);
 
   if (!song) {
     return NextResponse.json({ error: "Song not found" }, { status: 404 });
@@ -75,7 +68,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authorized to delete this song" }, { status: 403 });
   }
 
-  // Delete audio file
+  // Delete audio file from disk
   if (song.filename) {
     const audioPath = path.join(UPLOAD_FOLDER, song.filename);
     if (fs.existsSync(audioPath)) {
@@ -87,7 +80,7 @@ export async function DELETE(
     }
   }
 
-  // Delete cover file if exists
+  // Delete cover file from disk
   if (song.cover) {
     const coverPath = path.join(COVERS_FOLDER, song.cover);
     if (fs.existsSync(coverPath)) {
@@ -99,11 +92,8 @@ export async function DELETE(
     }
   }
 
-  // Delete from playlist_songs and favorites
-  db.prepare("DELETE FROM playlist_songs WHERE song_id = ?").run(id);
-  db.prepare("DELETE FROM favorites WHERE song_id = ?").run(id);
-  db.prepare("DELETE FROM songs WHERE id = ?").run(id);
+  // Delete Firestore records
+  await songsDb.delete(id);
 
   return NextResponse.json({ success: true });
 }
-

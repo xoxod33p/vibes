@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { songsDb } from "@/lib/db";
 
 export async function GET(
   _req: NextRequest,
@@ -7,18 +7,25 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const song = db
-      .prepare("SELECT id, title, artist, album, duration, filename, cover, status FROM songs WHERE id = ?")
-      .get(id) as {
-        id: string; title: string; artist: string; album: string;
-        duration: number; filename: string; cover: string | null; status: string;
-      } | undefined;
+    const song = await songsDb.getStatus(id);
 
     if (!song) {
       return NextResponse.json({ error: "Song not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, song });
+    return NextResponse.json({
+      success: true,
+      song: {
+        id: song.id,
+        title: song.title,
+        artist: song.artist,
+        album: song.album,
+        duration: song.duration,
+        filename: song.filename,
+        cover: song.cover,
+        status: song.status,
+      },
+    });
   } catch (err) {
     console.error("Song status check error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

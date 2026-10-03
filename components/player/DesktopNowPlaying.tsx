@@ -15,7 +15,7 @@ import {
   Disc3,
   SlidersHorizontal,
 } from "lucide-react";
-import { useAudio } from "@/lib/audio-context";
+import { useAudio, useAudioTime } from "@/lib/audio-context";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -33,11 +33,10 @@ interface DesktopNowPlayingProps {
 }
 
 export function DesktopNowPlaying({ onOpenQueue, onOpenSettings }: DesktopNowPlayingProps) {
+  const { currentTime, duration } = useAudioTime();
   const {
     currentSong,
     isPlaying,
-    currentTime,
-    duration,
     volume,
     isMuted,
     isShuffle,
@@ -59,6 +58,12 @@ export function DesktopNowPlaying({ onOpenQueue, onOpenSettings }: DesktopNowPla
   } = useAudio();
 
   const [isHovered, setIsHovered] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubValue, setScrubValue] = useState<number | null>(null);
+
+  const effectiveDuration = duration > 0 ? duration : (currentSong?.duration || 0);
+  const displayTime = isScrubbing && scrubValue !== null ? scrubValue : currentTime;
+  const sliderValue = isScrubbing && scrubValue !== null ? scrubValue : Math.min(currentTime, effectiveDuration || 100);
 
   if (!currentSong) {
     return (
@@ -202,18 +207,28 @@ export function DesktopNowPlaying({ onOpenQueue, onOpenSettings }: DesktopNowPla
         {/* Timeline Scrubber */}
         <div className="flex items-center gap-3 w-full">
           <span className="text-xs font-mono text-neutral-400 w-10 text-right">
-            {formatTime(currentTime)}
+            {formatTime(displayTime)}
           </span>
           <Slider
-            value={[currentTime]}
-            max={duration || 100}
+            value={[sliderValue]}
+            min={0}
+            max={effectiveDuration > 0 ? effectiveDuration : 100}
             step={0.5}
-            onValueChange={(val) => seek(val[0])}
-            showThumbOnHoverOnly={!isHovered}
+            disabled={!currentSong}
+            onValueChange={(val) => {
+              setIsScrubbing(true);
+              setScrubValue(val[0]);
+            }}
+            onValueCommit={(val) => {
+              seek(val[0]);
+              setIsScrubbing(false);
+              setScrubValue(null);
+            }}
+            showThumbOnHoverOnly={!isHovered && !isScrubbing}
             className="w-full"
           />
           <span className="text-xs font-mono text-neutral-400 w-10 text-left">
-            {formatTime(duration)}
+            {formatTime(effectiveDuration)}
           </span>
         </div>
       </div>

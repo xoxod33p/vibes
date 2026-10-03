@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { usersDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-interface UserRow {
-  id: string;
-  username: string;
-  email: string;
-  created_at: string;
-}
 
 const NO_CACHE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -28,9 +21,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const user = db.prepare(
-      "SELECT id, username, email, created_at FROM users WHERE id = ?"
-    ).get(session.userId) as UserRow | undefined;
+    const user = await usersDb.findById(session.userId);
 
     if (!user) {
       return NextResponse.json(
@@ -39,13 +30,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const plCountRow = db.prepare(
-      "SELECT COUNT(*) as count FROM playlists WHERE user_id = ?"
-    ).get(session.userId) as { count: number } | undefined;
-
-    const favCountRow = db.prepare(
-      "SELECT COUNT(*) as count FROM favorites WHERE user_id = ?"
-    ).get(session.userId) as { count: number } | undefined;
+    const playlistCount = await usersDb.countPlaylists(session.userId);
+    const favoriteCount = await usersDb.countFavorites(session.userId);
 
     return NextResponse.json(
       {
@@ -55,8 +41,8 @@ export async function GET(req: NextRequest) {
           username: user.username,
           email: user.email,
           created_at: user.created_at,
-          playlist_count: plCountRow?.count || 0,
-          favorite_count: favCountRow?.count || 0,
+          playlist_count: playlistCount || 0,
+          favorite_count: favoriteCount || 0,
         },
       },
       { headers: NO_CACHE_HEADERS }
@@ -69,4 +55,3 @@ export async function GET(req: NextRequest) {
     );
   }
 }
-

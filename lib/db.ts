@@ -464,7 +464,9 @@ export function getYtdlpPath(): string {
   //    This is necessary on Linux when running under PM2/systemd where the
   //    shell PATH is stripped and 'yt-dlp' is not resolvable by name alone.
   const candidates = [
-    path.join(BASE_DIR, "bin", "yt-dlp"),           // ./bin/yt-dlp (installed by install.sh)
+    path.join(BASE_DIR, "bin", process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"),
+    path.join(BASE_DIR, "bin", "yt-dlp"),
+    path.join(BASE_DIR, "bin", "yt-dlp.exe"),
     "/usr/local/bin/yt-dlp",
     path.join(process.env.HOME || "/root", ".local", "bin", "yt-dlp"),
     "/usr/bin/yt-dlp",
@@ -481,4 +483,41 @@ export function getYtdlpPath(): string {
   return "yt-dlp";
 }
 
+export function getFfmpegPath(): string | null {
+  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+
+  const candidates = [
+    path.join(BASE_DIR, "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"),
+    path.join(BASE_DIR, "bin", "ffmpeg"),
+    path.join(BASE_DIR, "bin", "ffmpeg.exe"),
+    "/usr/local/bin/ffmpeg",
+    path.join(process.env.HOME || "/root", ".local", "bin", "ffmpeg"),
+    "/usr/bin/ffmpeg",
+    "/bin/ffmpeg",
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {}
+  }
+
+  return null;
+}
+
+export function getExtendedPath(): string {
+  const binDir = path.join(BASE_DIR, "bin");
+  const candidates = [
+    binDir,
+    path.join(binDir, "node", "bin"),
+    process.env.PATH || "",
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    path.join(process.env.HOME || "/home/admin", ".local", "bin"),
+  ];
+  return candidates.filter(Boolean).join(process.platform === "win32" ? ";" : ":");
+}
+
 export { UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR, BASE_DIR };
+

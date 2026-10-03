@@ -1,5 +1,14 @@
+const path = require("path");
 const { loadEnvConfig } = require("@next/env");
 loadEnvConfig(process.cwd());
+
+// Ensure local bin and node dirs are always in PATH even under PM2 / systemd
+const binDir = path.join(process.cwd(), "bin");
+const nodeBinDir = path.join(binDir, "node", "bin");
+const sep = path.delimiter;
+if (!process.env.PATH || !process.env.PATH.includes(binDir)) {
+  process.env.PATH = `${binDir}${sep}${nodeBinDir}${sep}${process.env.PATH || ""}`;
+}
 
 const { createServer } = require("http");
 const { parse } = require("url");

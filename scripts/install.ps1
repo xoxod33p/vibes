@@ -14,12 +14,21 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 Write-Host "[1/5] Architecture: $env:PROCESSOR_ARCHITECTURE" -ForegroundColor Yellow
 Write-Host ""
 
+# ── Node.js ───────────────────────────────────────────────────────────────────
 Write-Host "[2/5] Setting up Node.js..." -ForegroundColor Yellow
 $NodeDir = Join-Path $BinDir "node"
-$NodePath = Get-Command node -ErrorAction SilentlyContinue
-if ($NodePath) {
-    Write-Host "  Already installed: $(node -v) at $($NodePath.Source)" -ForegroundColor Green
+$NodeInBin = Join-Path $NodeDir "node.exe"
+$NodeCmd = Get-Command node -ErrorAction SilentlyContinue
+
+if ($NodeCmd) {
+    $NodeInstalled = $true
+    Write-Host "  Already installed: $(node -v) at $($NodeCmd.Source)" -ForegroundColor Green
+} elseif (Test-Path $NodeInBin) {
+    $NodeInstalled = $true
+    $env:PATH = "$NodeDir;$env:PATH"
+    Write-Host "  Already installed: $(& $NodeInBin -v) at $NodeInBin" -ForegroundColor Green
 } else {
+    $NodeInstalled = $false
     $NodeIndex = Invoke-RestMethod -Uri "https://nodejs.org/dist/index.json" -UseBasicParsing
     $NodeVersion = ($NodeIndex | Where-Object { $_.lts } | Select-Object -First 1).version.TrimStart("v")
     $NodeZip = "node-v$NodeVersion-win-x64.zip"
@@ -37,11 +46,22 @@ if ($NodePath) {
 }
 Write-Host ""
 
+# ── ffmpeg ────────────────────────────────────────────────────────────────────
 Write-Host "[3/5] Setting up ffmpeg..." -ForegroundColor Yellow
-$FfmpegPath = Get-Command ffmpeg -ErrorAction SilentlyContinue
-if ($FfmpegPath) {
-    Write-Host "  Already installed at $($FfmpegPath.Source)" -ForegroundColor Green
+$FfmpegInBin = Join-Path $BinDir "ffmpeg.exe"
+$FfmpegCmd = Get-Command ffmpeg -ErrorAction SilentlyContinue
+
+if ($FfmpegCmd) {
+    $FfmpegInstalled = $true
+    $FfmpegFinalPath = $FfmpegCmd.Source
+    Write-Host "  Already installed at $FfmpegFinalPath" -ForegroundColor Green
+} elseif (Test-Path $FfmpegInBin) {
+    $FfmpegInstalled = $true
+    $FfmpegFinalPath = $FfmpegInBin
+    $env:PATH = "$BinDir;$env:PATH"
+    Write-Host "  Already installed at $FfmpegFinalPath" -ForegroundColor Green
 } else {
+    $FfmpegInstalled = $false
     $FfmpegUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
     $FfmpegZip = Join-Path $BinDir "ffmpeg.zip"
 
@@ -56,32 +76,50 @@ if ($FfmpegPath) {
     Remove-Item $FfmpegZip
 
     $env:PATH = "$BinDir;$env:PATH"
-    Write-Host "  Installed at $BinDir\ffmpeg.exe" -ForegroundColor Green
+    $FfmpegFinalPath = $FfmpegInBin
+    Write-Host "  Installed at $FfmpegFinalPath" -ForegroundColor Green
 }
 Write-Host ""
 
+# ── yt-dlp ────────────────────────────────────────────────────────────────────
 Write-Host "[4/5] Setting up yt-dlp..." -ForegroundColor Yellow
-$YtdlpPath = Get-Command yt-dlp -ErrorAction SilentlyContinue
-if ($YtdlpPath) {
-    Write-Host "  Already installed: $(yt-dlp --version) at $($YtdlpPath.Source)" -ForegroundColor Green
+$YtdlpInBin = Join-Path $BinDir "yt-dlp.exe"
+$YtdlpCmd = Get-Command yt-dlp -ErrorAction SilentlyContinue
+
+if ($YtdlpCmd) {
+    $YtdlpInstalled = $true
+    $YtdlpFinalPath = $YtdlpCmd.Source
+    Write-Host "  Already installed: $(yt-dlp --version) at $YtdlpFinalPath" -ForegroundColor Green
+    Write-Host "  Updating to latest..." -ForegroundColor White
+    try { & $YtdlpFinalPath -U } catch {}
+} elseif (Test-Path $YtdlpInBin) {
+    $YtdlpInstalled = $true
+    $YtdlpFinalPath = $YtdlpInBin
+    $env:PATH = "$BinDir;$env:PATH"
+    Write-Host "  Already installed: $(& $YtdlpInBin --version) at $YtdlpInBin" -ForegroundColor Green
+    Write-Host "  Updating to latest..." -ForegroundColor White
+    try { & $YtdlpInBin -U } catch {}
 } else {
+    $YtdlpInstalled = $false
     $YtdlpUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe"
 
     Write-Host "  Downloading yt-dlp..." -ForegroundColor White
-    Invoke-WebRequest -Uri $YtdlpUrl -OutFile (Join-Path $BinDir "yt-dlp.exe") -UseBasicParsing
+    Invoke-WebRequest -Uri $YtdlpUrl -OutFile $YtdlpInBin -UseBasicParsing
 
     $env:PATH = "$BinDir;$env:PATH"
-    $YtdlpVersion = & (Join-Path $BinDir "yt-dlp.exe") --version
-    Write-Host "  Installed: $YtdlpVersion at $BinDir\yt-dlp.exe" -ForegroundColor Green
+    $YtdlpFinalPath = $YtdlpInBin
+    $YtdlpVersion = & $YtdlpInBin --version
+    Write-Host "  Installed: $YtdlpVersion at $YtdlpFinalPath" -ForegroundColor Green
 }
 Write-Host ""
 
+# ── PATH persistence ──────────────────────────────────────────────────────────
 Write-Host "[5/5] Adding to PATH..." -ForegroundColor Yellow
 $PathsToAdd = @()
-if (-not $FfmpegPath -or -not $YtdlpPath) {
+if (-not $FfmpegInstalled -or -not $YtdlpInstalled) {
     $PathsToAdd += $BinDir
 }
-if (-not $NodePath) {
+if (-not $NodeInstalled) {
     $PathsToAdd += $NodeDir
 }
 
@@ -127,14 +165,17 @@ if ($PathsToAdd.Count -eq 0) {
 }
 Write-Host ""
 
+# ── npm install ───────────────────────────────────────────────────────────────
 Write-Host "[+] Installing npm dependencies..." -ForegroundColor Yellow
 Push-Location $ProjectDir
 try { npm install } finally { Pop-Location }
 Write-Host ""
 
+# ── .env generation ───────────────────────────────────────────────────────────
 $EnvFile = Join-Path $ProjectDir ".env"
 if (-not (Test-Path $EnvFile)) {
-    $YtdlpFinal = if ($YtdlpPath) { $YtdlpPath.Source } else { Join-Path $BinDir "yt-dlp.exe" }
+    $YtdlpEnvLine = if ($YtdlpFinalPath -and ($YtdlpFinalPath -ne $YtdlpInBin)) { "YTDLP_PATH=$YtdlpFinalPath" } else { "# YTDLP_PATH=  # auto-detected from ./bin/yt-dlp.exe or system PATH" }
+    $FfmpegEnvLine = if ($FfmpegFinalPath -and ($FfmpegFinalPath -ne $FfmpegInBin)) { "FFMPEG_PATH=$FfmpegFinalPath" } else { "# FFMPEG_PATH=  # auto-detected from ./bin/ffmpeg.exe or system PATH" }
     $CookiesFinal = Join-Path $ProjectDir "cookies.txt"
     $Secret = -join ((1..64) | ForEach-Object { [char](Get-Random -Minimum 33 -Maximum 126) })
 
@@ -144,7 +185,8 @@ HOSTNAME=0.0.0.0
 NODE_ENV=development
 SESSION_SECRET=$Secret
 COOKIE_SECURE=false
-YTDLP_PATH=$YtdlpFinal
+$YtdlpEnvLine
+$FfmpegEnvLine
 COOKIES_PATH=$CookiesFinal
 FIREBASE_SERVICE_ACCOUNT_KEY=
 FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json
@@ -163,8 +205,8 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
     Write-Host "[+] .env already exists, skipping" -ForegroundColor Green
 }
 
-$FinalYtdlp = if ($YtdlpPath) { $YtdlpPath.Source } else { "$BinDir\yt-dlp.exe" }
-$FinalFfmpeg = if ($FfmpegPath) { $FfmpegPath.Source } else { "$BinDir\ffmpeg.exe" }
+$FinalYtdlp = if ($YtdlpFinalPath) { $YtdlpFinalPath } else { "$BinDir\yt-dlp.exe" }
+$FinalFfmpeg = if ($FfmpegFinalPath) { $FfmpegFinalPath } else { "$BinDir\ffmpeg.exe" }
 $NodeCheck = Get-Command node -ErrorAction SilentlyContinue
 $FinalNode = if ($NodeCheck) { $NodeCheck.Source } else { "not found" }
 

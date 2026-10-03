@@ -4,7 +4,16 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { songsDb, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
+import {
+  songsDb,
+  UPLOAD_FOLDER,
+  COVERS_FOLDER,
+  BASE_DIR,
+  getCookiesPath,
+  getYtdlpPath,
+  getFfmpegPath,
+  getExtendedPath,
+} from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 
 const execFileAsync = promisify(execFile);
@@ -54,13 +63,8 @@ export async function POST(req: NextRequest) {
     const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
     const cookiesFile = getCookiesPath();
-    const extendedPath = [
-      process.env.PATH || "",
-      "/usr/local/bin",
-      "/usr/bin",
-      "/bin",
-      path.join(process.env.HOME || "/home/admin", ".local/bin"),
-    ].join(process.platform === "win32" ? ";" : ":");
+    const ffmpegBinary = getFfmpegPath();
+    const extendedPath = getExtendedPath();
 
     const attempts: Array<{ useCookies: boolean; client: string }> = [];
     if (cookiesFile) {
@@ -98,6 +102,10 @@ export async function POST(req: NextRequest) {
         "--no-check-certificates",
       ];
 
+      if (ffmpegBinary) {
+        args.push("--ffmpeg-location", path.dirname(ffmpegBinary));
+      }
+
       if (attempt.client) {
         args.push("--extractor-args", `youtube:player_client=${attempt.client}`);
       }
@@ -105,6 +113,7 @@ export async function POST(req: NextRequest) {
       if (attempt.useCookies && cookiesFile) {
         args.push("--cookies", cookiesFile);
       }
+
 
       args.push(target);
 

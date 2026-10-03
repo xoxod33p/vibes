@@ -3,7 +3,7 @@ import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
+import { BASE_DIR, getCookiesPath, getYtdlpPath, getExtendedPath } from "@/lib/db";
 
 const execFileAsync = promisify(execFile);
 
@@ -159,13 +159,7 @@ export async function resolveSpotify(url: string): Promise<ResolvedMedia> {
 
 export async function resolveYouTube(url: string): Promise<ResolvedMedia> {
   const cookiesFile = getCookiesPath();
-  const extendedPath = [
-    process.env.PATH || "",
-    "/usr/local/bin",
-    "/usr/bin",
-    "/bin",
-    path.join(process.env.HOME || "/home/admin", ".local/bin"),
-  ].join(process.platform === "win32" ? ";" : ":");
+  const extendedPath = getExtendedPath();
 
   const attempts: Array<{ useCookies: boolean; client: string }> = [];
   if (cookiesFile) {

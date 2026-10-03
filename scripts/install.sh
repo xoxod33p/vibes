@@ -26,6 +26,7 @@ esac
 echo "[1/5] Architecture: $ARCH ($ARCH_LABEL)"
 echo ""
 
+# ── Node.js ───────────────────────────────────────────────────────────────────
 NODE_INSTALLED=false
 echo "[2/5] Setting up Node.js..."
 if command -v node &>/dev/null; then
@@ -50,11 +51,17 @@ else
 fi
 echo ""
 
+# ── ffmpeg ────────────────────────────────────────────────────────────────────
 FFMPEG_INSTALLED=false
 echo "[3/5] Setting up ffmpeg..."
 if command -v ffmpeg &>/dev/null; then
     FFMPEG_PATH="$(which ffmpeg)"
     FFMPEG_INSTALLED=true
+    echo "  Already installed at $FFMPEG_PATH"
+elif [ -f "$BIN_DIR/ffmpeg" ]; then
+    FFMPEG_PATH="$BIN_DIR/ffmpeg"
+    FFMPEG_INSTALLED=true
+    export PATH="$BIN_DIR:$PATH"
     echo "  Already installed at $FFMPEG_PATH"
 else
     echo "  Downloading ffmpeg static build..."
@@ -78,12 +85,22 @@ else
 fi
 echo ""
 
+# ── yt-dlp ────────────────────────────────────────────────────────────────────
 YTDLP_INSTALLED=false
 echo "[4/5] Setting up yt-dlp..."
 if command -v yt-dlp &>/dev/null; then
     YTDLP_PATH="$(which yt-dlp)"
     YTDLP_INSTALLED=true
     echo "  Already installed: $(yt-dlp --version) at $YTDLP_PATH"
+    echo "  Updating to latest..."
+    yt-dlp -U 2>/dev/null || true
+elif [ -f "$BIN_DIR/yt-dlp" ]; then
+    YTDLP_PATH="$BIN_DIR/yt-dlp"
+    YTDLP_INSTALLED=true
+    export PATH="$BIN_DIR:$PATH"
+    echo "  Already installed: $("$BIN_DIR/yt-dlp" --version) at $YTDLP_PATH"
+    echo "  Updating to latest..."
+    "$BIN_DIR/yt-dlp" -U 2>/dev/null || true
 else
     echo "  Downloading yt-dlp..."
     case "$ARCH_LABEL" in
@@ -97,10 +114,11 @@ else
 
     YTDLP_PATH="$BIN_DIR/yt-dlp"
     export PATH="$BIN_DIR:$PATH"
-    echo "  Installed: $($BIN_DIR/yt-dlp --version) at $YTDLP_PATH"
+    echo "  Installed: $("$BIN_DIR/yt-dlp" --version) at $YTDLP_PATH"
 fi
 echo ""
 
+# ── PATH persistence ──────────────────────────────────────────────────────────
 echo "[5/5] Adding to PATH..."
 PATHS_TO_ADD=""
 if [ "$FFMPEG_INSTALLED" = false ] || [ "$YTDLP_INSTALLED" = false ]; then
@@ -139,24 +157,55 @@ else
 fi
 echo ""
 
+# ── npm install ───────────────────────────────────────────────────────────────
 echo "[+] Installing npm dependencies..."
 cd "$PROJECT_DIR"
 npm install
 echo ""
 
+# ── .env generation ───────────────────────────────────────────────────────────
 ENV_FILE="$PROJECT_DIR/.env"
 if [ ! -f "$ENV_FILE" ]; then
-    YTDLP_FINAL="${YTDLP_PATH:-$BIN_DIR/yt-dlp}"
+    # Only set YTDLP_PATH / FFMPEG_PATH if in a non-standard location.
+    # Standard locations (./bin, /usr/local/bin, /usr/bin) are
+    # auto-probed by lib/db.ts — no override needed.
+    IS_STANDARD=false
+    for loc in "$BIN_DIR/yt-dlp" "/usr/local/bin/yt-dlp" "/usr/bin/yt-dlp"; do
+        if [ "$YTDLP_PATH" = "$loc" ]; then
+            IS_STANDARD=true
+            break
+        fi
+    done
+    if [ "$IS_STANDARD" = false ] && [ -n "$YTDLP_PATH" ]; then
+        YTDLP_ENV_LINE="YTDLP_PATH=$YTDLP_PATH"
+    else
+        YTDLP_ENV_LINE="# YTDLP_PATH=  # auto-detected from ./bin/yt-dlp or system PATH"
+    fi
+
+    IS_FFMPEG_STANDARD=false
+    for loc in "$BIN_DIR/ffmpeg" "/usr/local/bin/ffmpeg" "/usr/bin/ffmpeg"; do
+        if [ "$FFMPEG_PATH" = "$loc" ]; then
+            IS_FFMPEG_STANDARD=true
+            break
+        fi
+    done
+    if [ "$IS_FFMPEG_STANDARD" = false ] && [ -n "$FFMPEG_PATH" ]; then
+        FFMPEG_ENV_LINE="FFMPEG_PATH=$FFMPEG_PATH"
+    else
+        FFMPEG_ENV_LINE="# FFMPEG_PATH=  # auto-detected from ./bin/ffmpeg or system PATH"
+    fi
+
     COOKIES_FINAL="$PROJECT_DIR/cookies.txt"
     SECRET=$(openssl rand -hex 32 2>/dev/null || head -c 64 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 64)
 
     cat > "$ENV_FILE" <<EOF
 PORT=5000
 HOSTNAME=0.0.0.0
-NODE_ENV=development
+NODE_ENV=production
 SESSION_SECRET=$SECRET
 COOKIE_SECURE=false
-YTDLP_PATH=$YTDLP_FINAL
+$YTDLP_ENV_LINE
+$FFMPEG_ENV_LINE
 COOKIES_PATH=$COOKIES_FINAL
 FIREBASE_SERVICE_ACCOUNT_KEY=
 FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json

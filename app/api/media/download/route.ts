@@ -3,7 +3,17 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { songsDb, playlistsDb, UPLOAD_FOLDER, COVERS_FOLDER, BASE_DIR, getCookiesPath, getYtdlpPath } from "@/lib/db";
+import {
+  songsDb,
+  playlistsDb,
+  UPLOAD_FOLDER,
+  COVERS_FOLDER,
+  BASE_DIR,
+  getCookiesPath,
+  getYtdlpPath,
+  getFfmpegPath,
+  getExtendedPath,
+} from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { enqueueDownload, queueLength } from "@/lib/download-queue";
 import {
@@ -45,13 +55,8 @@ async function runBackgroundDownload(opts: {
     console.log("[download:bg] No cookies file found (checked COOKIES_PATH, ./cookies.txt, /home/admin/vibes/cookies.txt)");
   }
 
-  const extendedPath = [
-    process.env.PATH || "",
-    "/usr/local/bin",
-    "/usr/bin",
-    "/bin",
-    path.join(process.env.HOME || "/home/admin", ".local/bin"),
-  ].join(process.platform === "win32" ? ";" : ":");
+  const extendedPath = getExtendedPath();
+  const ffmpegBinary = getFfmpegPath();
 
   const runYtdlpAttempt = (useCookies: boolean, clientArg: string) => {
     return new Promise<{ exitCode: number; stdout: string; stderr: string }>((resolve) => {
@@ -69,6 +74,11 @@ async function runBackgroundDownload(opts: {
         "--no-cache-dir",
         "--no-check-certificates",
       ];
+
+      if (ffmpegBinary) {
+        args.push("--ffmpeg-location", path.dirname(ffmpegBinary));
+      }
+
 
       if (clientArg) {
         args.push("--extractor-args", `youtube:player_client=${clientArg}`);

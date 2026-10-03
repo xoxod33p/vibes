@@ -648,51 +648,6 @@ function getAuthHeaders(): Record<string, string> {
     });
   }, [togglePlay, prevTrack, nextTrack]);
 
-  // Desktop Keyboard Shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
-        return;
-      }
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.code === "ArrowRight") {
-        e.preventDefault();
-        const audio = audioRef.current;
-        if (audio) {
-          audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 5);
-        }
-      } else if (e.code === "ArrowLeft") {
-        e.preventDefault();
-        const audio = audioRef.current;
-        if (audio) {
-          audio.currentTime = Math.max(0, audio.currentTime - 5);
-        }
-      } else if (e.key === "l" || e.key === "L") {
-        if (currentSongRef.current) {
-          e.preventDefault();
-          toggleFavorite(currentSongRef.current.id);
-        }
-      } else if (e.key === "s" || e.key === "S") {
-        e.preventDefault();
-        toggleShuffle();
-      } else if (e.key === "r" || e.key === "R") {
-        e.preventDefault();
-        toggleRepeat();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlay, toggleShuffle, toggleRepeat, toggleFavorite]);
-
   const value = useMemo<AudioContextType>(
     () => ({
       currentSong,

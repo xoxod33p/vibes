@@ -5,7 +5,6 @@ import {
   Settings,
   HardDrive,
   Trash2,
-  Keyboard,
   Loader2,
   Palette,
   Check,
@@ -260,35 +259,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
               </div>
             </div>
 
-            {/* Keyboard Shortcuts Cheatsheet — Hidden on mobile phones where physical keyboard isn't used */}
-            <div className="hidden md:flex flex-col gap-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
-                <Keyboard className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
-                <span>Keyboard Shortcuts</span>
-              </h4>
-
-              <div className="glass-panel rounded-2xl p-3 border border-white/5 grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                  <span className="text-neutral-400">Play / Pause</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">Space</kbd>
-                </div>
-
-                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                  <span className="text-neutral-400">Seek ±5s</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">← / →</kbd>
-                </div>
-
-                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                  <span className="text-neutral-400">Like Track</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">L</kbd>
-                </div>
-
-                <div className="flex items-center justify-between p-1.5 rounded-lg bg-white/5">
-                  <span className="text-neutral-400">Shuffle / Repeat</span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white text-[11px]">S / R</kbd>
-                </div>
-              </div>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

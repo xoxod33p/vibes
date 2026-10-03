@@ -6,7 +6,7 @@ A modern, self-hosted web music player and media downloader built with **Next.js
 
 ## ✨ Features
 
-- **High-Performance Audio Player** — Smooth timeline scrubber with instant seek preview, byte-range HTTP 206 streaming, queue reordering, shuffle, repeat, and keyboard shortcuts (`Space`, `ArrowLeft`, `ArrowRight`, `L`, `S`, `R`).
+- **High-Performance Audio Player** — Smooth timeline scrubber with instant seek preview, byte-range HTTP 206 streaming, queue reordering, shuffle, and repeat.
 - **Media Downloader** — Download individual songs, full albums, or playlists from YouTube and Spotify with metadata tags and high-res album covers.
 - **Real-Time Downloads Center** — Live WebSocket progress updates (download speed, ETA, percentage, file size) with automatic background transcode to MP3 320kbps.
 - **Resilient yt-dlp Engine** — Multi-client cascade (`default`, `web_embedded,web,tv`, `mweb`), automated cookie fallback, and anti-403 mitigations.
@@ -123,18 +123,6 @@ If downloading from YouTube encounters `HTTP 403 Forbidden` or bot verification 
 
 ---
 
-## ⌨️ Keyboard Shortcuts
-
-| Shortcut | Action |
-|---|---|
-| `Space` | Play / Pause |
-| `ArrowRight` | Seek forward 5 seconds |
-| `ArrowLeft` | Seek backward 5 seconds |
-| `L` | Toggle Favorite for current song |
-| `S` | Toggle Shuffle |
-| `R` | Cycle Repeat (Off / All / One) |
-
----
 
 ## 📄 License
 

@@ -22,25 +22,6 @@ The script will automatically:
 
 ---
 
-## Option B: Docker Container Deployment
-
-If Docker and Docker Compose are installed on the server:
-
-```bash
-# 1. Build and run in background
-docker compose up -d --build
-
-# 2. View logs
-docker compose logs -f
-
-# 3. Update container when code changes
-git pull origin dev
-docker compose up -d --build
-```
-
-Persistent files are stored in `./uploads`, `./public/covers`, and `./cache`.
-
----
 
 ## Option C: Manual Bare-Metal Setup (Ubuntu/Debian)
 

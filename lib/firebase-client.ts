@@ -15,7 +15,7 @@ let cachedAuth: Auth | null = null;
 let cachedProvider: GoogleAuthProvider | null = null;
 
 export async function getClientAuth(): Promise<{ auth: Auth | null; provider: GoogleAuthProvider | null }> {
-  // If config was not inlined during build (e.g. in Docker), fetch runtime config from server
+  // If config was not inlined during build, fetch runtime config from server
   if (!firebaseConfig.apiKey && typeof window !== "undefined") {
     try {
       const res = await fetch("/api/auth/firebase-config");

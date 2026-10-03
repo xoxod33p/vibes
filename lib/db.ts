@@ -444,13 +444,6 @@ export function getCookiesPath(): string | null {
     }
   } catch {}
 
-  const dockerCookies = "/app/cookies.txt";
-  try {
-    if (fs.existsSync(dockerCookies)) {
-      const stat = fs.statSync(dockerCookies);
-      if (stat.isFile() && stat.size > 0) return dockerCookies;
-    }
-  } catch {}
 
   const linuxCookies = "/home/admin/vibes/cookies.txt";
   try {

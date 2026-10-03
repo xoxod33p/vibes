@@ -12,7 +12,7 @@ A modern, self-hosted web music player and media downloader built with **Next.js
 - **Resilient yt-dlp Engine** — Multi-client cascade (`default`, `web_embedded,web,tv`, `mweb`), automated cookie fallback, and anti-403 mitigations.
 - **Customizable Dark Themes** — **Emerald** (default), Cyan, Violet, and Amber with ambient album glow effects.
 - **Playlists & Favorites** — Per-user library management, playlist creation, and instant favorite toggles.
-- **Containerized** — Docker & Docker Compose support with pre-configured `ffmpeg` and `yt-dlp`.
+
 
 ---
 
@@ -21,7 +21,7 @@ A modern, self-hosted web music player and media downloader built with **Next.js
 - **Node.js** v20+ or v22+
 - **ffmpeg** (required for audio extraction & transcoding)
 - **yt-dlp** (latest build recommended: `yt-dlp -U`)
-- **Docker & Docker Compose** *(optional, for containerized deployment)*
+
 
 ---
 
@@ -67,33 +67,6 @@ npm run dev
    Open [http://localhost:5000](http://localhost:5000) in your browser.
 
 ---
-
-## 🐳 Docker Deployment (Recommended)
-
-Run Vibes fully containerized with Node.js, `ffmpeg`, and `yt-dlp` bundled in a multi-stage Debian image:
-
-```bash
-# 1. Start the container in background
-docker compose up -d --build
-
-# 2. View live application logs
-docker compose logs -f
-
-# 3. Stop the container
-docker compose down
-```
-
-The application will run on port `5000` at [http://localhost:5000](http://localhost:5000).
-
-### Persistent Volumes
-
-| Host Path | Container Path | Purpose |
-|---|---|---|
-| `./uploads` | `/app/uploads` | Downloaded audio tracks |
-| `./public/covers` | `/app/public/covers` | Downloaded album art |
-| `./cache` | `/app/cache` | Audio transcoding cache |
-| `./cookies.txt` *(optional)* | `/app/cookies.txt` | YouTube cookies file for bot bypass |
-| `./serviceAccountKey.json` *(optional)* | `/app/serviceAccountKey.json` | Firebase Admin SDK credentials |
 
 ---
 

@@ -457,7 +457,28 @@ export function getCookiesPath(): string | null {
 }
 
 export function getYtdlpPath(): string {
-  return process.env.YTDLP_PATH || "yt-dlp";
+  // 1. Honour explicit env override
+  if (process.env.YTDLP_PATH) return process.env.YTDLP_PATH;
+
+  // 2. Probe candidate locations and return the first existing executable.
+  //    This is necessary on Linux when running under PM2/systemd where the
+  //    shell PATH is stripped and 'yt-dlp' is not resolvable by name alone.
+  const candidates = [
+    path.join(BASE_DIR, "bin", "yt-dlp"),           // ./bin/yt-dlp (installed by install.sh)
+    "/usr/local/bin/yt-dlp",
+    path.join(process.env.HOME || "/root", ".local", "bin", "yt-dlp"),
+    "/usr/bin/yt-dlp",
+    "/bin/yt-dlp",
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) return candidate;
+    } catch {}
+  }
+
+  // 3. Fallback: hope it's on PATH (works locally / Windows)
+  return "yt-dlp";
 }
 
 export { UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR, BASE_DIR };

@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { playlistsDb } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const session = await getCurrentUser();
-
   try {
-    const success = await playlistsDb.delete(id, session?.userId || null);
-
+    const success = playlistsDb.delete(id);
     if (!success) {
-      return NextResponse.json({ error: "Playlist not found or not authorized" }, { status: 404 });
+      return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
     }
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Delete playlist error:", error);

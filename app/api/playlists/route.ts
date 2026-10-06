@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { playlistsDb } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const session = await getCurrentUser(req);
-    const playlists = await playlistsDb.list(session?.userId || null);
+    const playlists = playlistsDb.list();
     return NextResponse.json(playlists);
   } catch (error) {
     console.error("List playlists error:", error);
@@ -25,15 +23,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Playlist name is required" }, { status: 400 });
     }
 
-    const session = await getCurrentUser(req);
     const pid = crypto.randomUUID();
-
-    const created = await playlistsDb.create({
-      id: pid,
-      name,
-      user_id: session?.userId || null,
-    });
-
+    const created = playlistsDb.create({ id: pid, name });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     console.error("Create playlist error:", error);

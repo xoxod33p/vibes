@@ -14,7 +14,6 @@ import {
   getFfmpegPath,
   getExtendedPath,
 } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
 import { enqueueDownload, queueLength } from "@/lib/download-queue";
 import {
   broadcastDownloadProgress,
@@ -35,9 +34,8 @@ async function runBackgroundDownload(opts: {
   coverUrl: string | null;
   isPlaylist: boolean;
   playlistId: string | null;
-  userId: string;
 }) {
-  const { songId, tempStem, target, title, artist, album, duration, coverUrl, isPlaylist, playlistId, userId } = opts;
+  const { songId, tempStem, target, title, artist, album, duration, coverUrl, isPlaylist, playlistId } = opts;
   const outputTemplate = path.join(UPLOAD_FOLDER, `${tempStem}.%(ext)s`);
 
   broadcastDownloadProgress({
@@ -230,7 +228,9 @@ async function runBackgroundDownload(opts: {
   const downloadedName = files.find((f) => f.startsWith(tempStem) && !f.endsWith(".pending"));
   if (!downloadedName) {
     console.error("[download:bg] Downloaded file not found for stem:", tempStem);
-    await songsDb.update(songId, { status: "error" }).catch(() => {});
+    try {
+      songsDb.update(songId, { status: "error" });
+    } catch {}
     broadcastDownloadError(songId, "Audio file not saved to disk");
     return;
   }
@@ -311,14 +311,6 @@ async function runBackgroundDownload(opts: {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getCurrentUser(req);
-    if (!session?.userId) {
-      return NextResponse.json(
-        { error: "Please sign in or create an account to download music" },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json().catch(() => ({}));
     let target = (body.target || body.url || body.searchQuery || "").trim();
 
@@ -350,7 +342,6 @@ export async function POST(req: NextRequest) {
       duration,
       filename: pendingFilename,
       cover: null,
-      user_id: session.userId,
       status: "pending",
     });
 
@@ -365,7 +356,7 @@ export async function POST(req: NextRequest) {
     const position = enqueueDownload(() =>
       runBackgroundDownload({
         songId, tempStem, target, title, artist, album, duration,
-        coverUrl, isPlaylist, playlistId, userId: session.userId,
+        coverUrl, isPlaylist, playlistId,
       })
     );
     console.log(`[dl-queue] Queued "${title}" at position ${position}, queue length: ${queueLength()}`);

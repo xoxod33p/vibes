@@ -54,6 +54,11 @@ music.db*
 *.db-journal
 *.db-wal
 *.db-shm
+data/
+/data
+/data/
+*.tmp.*
+music-db.json
 uploads/
 /uploads
 /uploads/

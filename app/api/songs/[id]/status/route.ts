@@ -7,12 +7,10 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const song = await songsDb.getStatus(id);
-
+    const song = songsDb.getStatus(id);
     if (!song) {
       return NextResponse.json({ error: "Song not found" }, { status: 404 });
     }
-
     return NextResponse.json({
       success: true,
       song: {

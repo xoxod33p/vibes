@@ -7,7 +7,7 @@ export async function GET(
 ) {
   const { id } = await params;
   try {
-    const songs = await playlistsDb.getSongs(id);
+    const songs = playlistsDb.getSongs(id);
     return NextResponse.json(songs);
   } catch (error) {
     console.error("List playlist songs error:", error);
@@ -28,8 +28,7 @@ export async function POST(
       return NextResponse.json({ error: "song_id is required" }, { status: 400 });
     }
 
-    await playlistsDb.addSong(playlistId, songId);
-
+    playlistsDb.addSong(playlistId, songId);
     return NextResponse.json({ success: true, playlistId, songId });
   } catch (error) {
     console.error("Add to playlist error:", error);

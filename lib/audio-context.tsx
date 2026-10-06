@@ -199,9 +199,7 @@ function getAuthHeaders(): Record<string, string> {
 
   const refreshPlaylists = useCallback(async () => {
     try {
-      const res = await fetch("/api/playlists", {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch("/api/playlists");
       if (res.ok) {
         const data = await res.json();
         setPlaylists(data);
@@ -211,42 +209,29 @@ function getAuthHeaders(): Record<string, string> {
     }
   }, []);
 
-  const refreshUser = useCallback(async () => {
+  const refreshFavorites = useCallback(async () => {
     try {
-      const authHeaders = getAuthHeaders();
-      const res = await fetch("/api/auth/me", {
-        headers: {
-          "Cache-Control": "no-cache",
-          ...authHeaders,
-        },
-      });
+      const res = await fetch("/api/favorites/ids");
       if (res.ok) {
-        const data = await res.json();
-        if (data.authenticated && data.user) {
-          setUser(data.user);
-          // Load favorites
-          const favRes = await fetch("/api/favorites/ids", {
-            headers: authHeaders,
-          });
-          if (favRes.ok) {
-            const favIds = await favRes.json();
-            setFavorites(new Set(favIds));
-          }
-        } else {
-          setUser(null);
-          setFavorites(new Set());
-        }
+        const favIds = await res.json();
+        setFavorites(new Set(favIds));
       }
     } catch (e) {
-      console.error("Failed to check auth:", e);
+      console.error("Failed to load favorites:", e);
     }
   }, []);
+
+  const refreshUser = useCallback(async () => {
+    // Auth removed: no user session needed
+    setUser(null);
+    await refreshFavorites();
+  }, [refreshFavorites]);
 
   useEffect(() => {
     refreshSongs();
     refreshPlaylists();
-    refreshUser();
-  }, [refreshSongs, refreshPlaylists, refreshUser]);
+    refreshFavorites();
+  }, [refreshSongs, refreshPlaylists, refreshFavorites]);
 
   // Real-time WebSocket connection for instant download progress and notifications
   useEffect(() => {
@@ -605,16 +590,10 @@ function getAuthHeaders(): Record<string, string> {
   }, []);
 
   const toggleFavorite = useCallback(async (songId: string): Promise<boolean> => {
-    if (!user) {
-      toast.error("Please login to save favorites");
-      return false;
-    }
-
     const isFav = favorites.has(songId);
     try {
       const res = await fetch(`/api/favorites/${songId}`, {
         method: isFav ? "DELETE" : "POST",
-        headers: getAuthHeaders(),
       });
       if (res.ok) {
         setFavorites((prev) => {
@@ -634,7 +613,7 @@ function getAuthHeaders(): Record<string, string> {
       toast.error("Failed to update favorite");
     }
     return isFav;
-  }, [user, favorites]);
+  }, [favorites]);
 
   // Setup MediaSession handlers
   useEffect(() => {

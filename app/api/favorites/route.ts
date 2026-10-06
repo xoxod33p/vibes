@@ -1,17 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { favoritesDb } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const session = await getCurrentUser(req);
-    if (!session?.userId) {
-      return NextResponse.json([]);
-    }
-
-    const songs = await favoritesDb.list(session.userId);
+    const songs = favoritesDb.list();
     return NextResponse.json(songs);
   } catch (error) {
     console.error("List favorites error:", error);

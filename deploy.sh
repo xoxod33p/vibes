@@ -32,10 +32,6 @@ export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
 export NEXT_TELEMETRY_DISABLED=1
 npm run build
 
-echo "==> Restarting with PM2..."
-pm2 describe vibes > /dev/null 2>&1 \
-  && pm2 reload ecosystem.config.js --update-env \
-  || pm2 start ecosystem.config.js
+echo "==> Build complete!"
+echo "==> Start the server with: npm start"
 
-pm2 save
-echo "==> Done! App running on port 5000"

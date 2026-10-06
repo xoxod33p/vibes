@@ -381,59 +381,121 @@ export function getCookiesPath(): string | null {
 }
 
 export function getYtdlpPath(): string {
-  if (process.env.YTDLP_PATH) return process.env.YTDLP_PATH;
+  const envPath = process.env.YTDLP_PATH;
+  if (envPath && envPath !== "yt-dlp") {
+    try {
+      if (fs.existsSync(envPath)) return envPath;
+    } catch {}
+  }
+
+  const isWin = process.platform === "win32";
+  const binaryName = isWin ? "yt-dlp.exe" : "yt-dlp";
 
   const candidates = [
-    path.join(BASE_DIR, "bin", process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"),
+    path.join(BASE_DIR, "bin", binaryName),
     path.join(BASE_DIR, "bin", "yt-dlp"),
-    path.join(BASE_DIR, "bin", "yt-dlp.exe"),
+    path.join(process.cwd(), "bin", binaryName),
+    path.join(process.cwd(), "bin", "yt-dlp"),
+    path.join(process.env.HOME || "/root", ".local", "bin", binaryName),
+    path.join(process.env.HOME || "/root", "bin", binaryName),
     "/usr/local/bin/yt-dlp",
-    path.join(process.env.HOME || "/root", ".local", "bin", "yt-dlp"),
     "/usr/bin/yt-dlp",
     "/bin/yt-dlp",
   ];
 
   for (const candidate of candidates) {
     try {
-      if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) return candidate;
+      if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) {
+        if (!isWin) {
+          try {
+            fs.chmodSync(candidate, 0o755);
+          } catch {}
+        }
+        return candidate;
+      }
     } catch {}
   }
 
-  return "yt-dlp";
+  // Probe system PATH via which / where to retrieve absolute path
+  try {
+    const { execSync } = require("node:child_process");
+    const cmd = isWin ? "where yt-dlp" : "which yt-dlp";
+    const resolved = execSync(cmd, { stdio: ["pipe", "pipe", "ignore"], encoding: "utf8" })
+      .trim()
+      .split(/\r?\n/)[0];
+    if (resolved && fs.existsSync(resolved)) {
+      return resolved;
+    }
+  } catch {}
+
+  const defaultLocal = path.join(BASE_DIR, "bin", binaryName);
+  if (fs.existsSync(defaultLocal)) return defaultLocal;
+
+  return envPath || "yt-dlp";
 }
 
 export function getFfmpegPath(): string | null {
-  if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
+  const envPath = process.env.FFMPEG_PATH;
+  if (envPath && envPath !== "ffmpeg") {
+    try {
+      if (fs.existsSync(envPath)) return envPath;
+    } catch {}
+  }
+
+  const isWin = process.platform === "win32";
+  const binaryName = isWin ? "ffmpeg.exe" : "ffmpeg";
 
   const candidates = [
-    path.join(BASE_DIR, "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg"),
+    path.join(BASE_DIR, "bin", binaryName),
     path.join(BASE_DIR, "bin", "ffmpeg"),
-    path.join(BASE_DIR, "bin", "ffmpeg.exe"),
+    path.join(process.cwd(), "bin", binaryName),
+    path.join(process.cwd(), "bin", "ffmpeg"),
+    path.join(process.env.HOME || "/root", ".local", "bin", binaryName),
+    path.join(process.env.HOME || "/root", "bin", binaryName),
     "/usr/local/bin/ffmpeg",
-    path.join(process.env.HOME || "/root", ".local", "bin", "ffmpeg"),
     "/usr/bin/ffmpeg",
     "/bin/ffmpeg",
   ];
 
   for (const candidate of candidates) {
     try {
-      if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) return candidate;
+      if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) {
+        if (!isWin) {
+          try {
+            fs.chmodSync(candidate, 0o755);
+          } catch {}
+        }
+        return candidate;
+      }
     } catch {}
   }
 
-  return null;
+  try {
+    const { execSync } = require("node:child_process");
+    const cmd = isWin ? "where ffmpeg" : "which ffmpeg";
+    const resolved = execSync(cmd, { stdio: ["pipe", "pipe", "ignore"], encoding: "utf8" })
+      .trim()
+      .split(/\r?\n/)[0];
+    if (resolved && fs.existsSync(resolved)) {
+      return resolved;
+    }
+  } catch {}
+
+  return envPath || null;
 }
 
 export function getExtendedPath(): string {
   const binDir = path.join(BASE_DIR, "bin");
   const candidates = [
     binDir,
+    path.join(process.cwd(), "bin"),
     path.join(binDir, "node", "bin"),
     process.env.PATH || "",
     "/usr/local/bin",
     "/usr/bin",
     "/bin",
-    path.join(process.env.HOME || "/home/admin", ".local", "bin"),
+    path.join(process.env.HOME || "/root", ".local", "bin"),
+    path.join(process.env.HOME || "/root", "bin"),
   ];
   return candidates.filter(Boolean).join(process.platform === "win32" ? ";" : ":");
 }

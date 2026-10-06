@@ -6,12 +6,30 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "dev")
 echo "==> Pulling latest code on branch $BRANCH..."
 git pull origin "$BRANCH"
 
-echo "==> Updating yt-dlp..."
-if command -v yt-dlp &>/dev/null; then
-  yt-dlp -U 2>/dev/null || true
-fi
+echo "==> Ensuring yt-dlp is installed and up-to-date..."
+mkdir -p "./bin"
 if [ -f "./bin/yt-dlp" ]; then
+  chmod +x "./bin/yt-dlp"
   ./bin/yt-dlp -U 2>/dev/null || true
+elif command -v yt-dlp &>/dev/null; then
+  yt-dlp -U 2>/dev/null || true
+else
+  echo "    Downloading yt-dlp binary to ./bin/yt-dlp..."
+  ARCH=$(uname -m 2>/dev/null || echo "x86_64")
+  case "$ARCH" in
+    aarch64|arm64) YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" ;;
+    armv7l)        YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_armv7l" ;;
+    *)             YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" ;;
+  esac
+  curl -fsSL "$YTDLP_URL" -o "./bin/yt-dlp" 2>/dev/null || wget -qO "./bin/yt-dlp" "$YTDLP_URL"
+  chmod +x "./bin/yt-dlp"
+  echo "    Installed yt-dlp: $(./bin/yt-dlp --version 2>/dev/null || echo 'installed')"
+fi
+
+# Ensure ffmpeg availability
+if ! command -v ffmpeg &>/dev/null && [ ! -f "./bin/ffmpeg" ]; then
+  echo "⚠️  [WARNING] ffmpeg not found! Audio transcoding requires ffmpeg."
+  echo "    Install with: sudo apt install -y ffmpeg (or run ./scripts/install.sh)"
 fi
 
 # Low RAM check on Linux VPS
@@ -32,10 +50,6 @@ export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
 export NEXT_TELEMETRY_DISABLED=1
 npm run build
 
-echo "==> Restarting with PM2..."
-pm2 describe vibes > /dev/null 2>&1 \
-  && pm2 reload ecosystem.config.js --update-env \
-  || pm2 start ecosystem.config.js
+echo "==> Build complete!"
+echo "==> Start the server with: npm start"
 
-pm2 save
-echo "==> Done! App running on port 5000"

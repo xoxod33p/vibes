@@ -14,20 +14,11 @@ import {
   getFfmpegPath,
   getExtendedPath,
 } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
 
 const execFileAsync = promisify(execFile);
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getCurrentUser();
-    if (!session?.userId) {
-      return NextResponse.json(
-        { error: "Please sign in or create an account to add music" },
-        { status: 401 }
-      );
-    }
-
     const body = await req.json().catch(() => ({}));
     const url = (body.url || "").trim();
 
@@ -217,7 +208,6 @@ export async function POST(req: NextRequest) {
       duration,
       filename: finalFilename,
       cover: coverFilename,
-      user_id: session?.userId || null,
       status: "ready",
     });
 

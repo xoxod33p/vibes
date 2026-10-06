@@ -7,7 +7,7 @@ export async function DELETE(
 ) {
   const { id: playlistId, songId } = await params;
   try {
-    await playlistsDb.removeSong(playlistId, songId);
+    playlistsDb.removeSong(playlistId, songId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Remove from playlist error:", error);

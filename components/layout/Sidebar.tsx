@@ -22,7 +22,7 @@ interface SidebarProps {
   onSelectTab: (tab: string) => void;
   onOpenYtdl: () => void;
   onOpenCreatePlaylist: () => void;
-  onOpenAuth: () => void;
+  onOpenAuth?: () => void;
   onOpenSettings: () => void;
 }
 
@@ -31,25 +31,12 @@ export function Sidebar({
   onSelectTab,
   onOpenYtdl,
   onOpenCreatePlaylist,
-  onOpenAuth,
   onOpenSettings,
 }: SidebarProps) {
-  const { user, refreshUser, activeDownloads } = useAudio();
+  const { allSongs, favorites, playlists, activeDownloads } = useAudio();
   const activeDownloadCount = Object.values(activeDownloads).filter(
     (d) => d.status !== "ready" && d.status !== "error"
   ).length;
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      try {
-        localStorage.removeItem("vibes_token");
-      } catch {}
-      await refreshUser();
-    } catch (e) {
-      console.error("Logout failed:", e);
-    }
-  };
 
   return (
     <aside className="hidden md:flex flex-col w-64 h-screen border-r border-white/5 bg-[#080b12]/80 backdrop-blur-xl p-5 select-none shrink-0 z-30">
@@ -156,27 +143,17 @@ export function Sidebar({
       {/* Bottom Profile / Account Section */}
       <div className="pt-4 border-t border-white/5 flex flex-col gap-2 shrink-0 mt-auto">
         <div className="flex items-center justify-between p-2 rounded-xl glass-pill">
-          {user ? (
-            <div className="flex items-center gap-3 min-w-0">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback className="bg-[var(--accent-primary)]/30 text-[var(--accent-primary-hover)] font-bold">
-                  {user.username.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 pr-1">
-                <p className="text-xs font-semibold text-white truncate">{user.username}</p>
-                <p className="text-[10px] text-neutral-400 truncate">{user.favorite_count || 0} Favorites</p>
-              </div>
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar className="w-8 h-8">
+              <AvatarFallback className="bg-[var(--accent-primary)]/30 text-[var(--accent-primary-hover)] font-bold">
+                V
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 pr-1">
+              <p className="text-xs font-semibold text-white truncate">Local Player</p>
+              <p className="text-[10px] text-neutral-400 truncate">{allSongs.length} songs • {playlists.length} playlists</p>
             </div>
-          ) : (
-            <button
-              onClick={onOpenAuth}
-              className="flex items-center gap-2.5 text-xs text-neutral-300 hover:text-white transition-colors cursor-pointer w-full text-left"
-            >
-              <UserIcon className="w-4 h-4 text-[var(--accent-primary)]" />
-              <span>Sign in / Register</span>
-            </button>
-          )}
+          </div>
 
           <div className="flex items-center gap-1">
             <button
@@ -186,16 +163,6 @@ export function Sidebar({
             >
               <Settings className="w-4 h-4" />
             </button>
-
-            {user && (
-              <button
-                onClick={handleLogout}
-                className="p-1.5 rounded-lg hover:bg-red-500/10 text-neutral-400 hover:text-red-400 transition-colors cursor-pointer"
-                title="Sign out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            )}
           </div>
         </div>
       </div>

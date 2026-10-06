@@ -3,8 +3,16 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
+  productionBrowserSourceMaps: false,
+  typescript: {
+    // Disables type checking during `next build` to save ~500MB-1GB RAM on low-spec VPS.
+    // Run `npx tsc --noEmit` locally or in CI.
+    ignoreBuildErrors: true,
+  },
   serverExternalPackages: ["better-sqlite3", "music-metadata", "ws", "bcryptjs"],
   experimental: {
+    // Limit Next.js build workers to 1 instead of parallel workers to prevent OOM
+    cpus: 1,
     optimizePackageImports: [
       "@radix-ui/react-avatar",
       "@radix-ui/react-dialog",

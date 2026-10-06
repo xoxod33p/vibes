@@ -44,7 +44,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   const [clearingSongs, setClearingSongs] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
 
-  const mySongsCount = user ? allSongs.filter((s) => s.user_id === user.id).length : 0;
+  const mySongsCount = allSongs.length;
 
   const themes: { id: ThemeId; name: string; shortName: string; color: string }[] = [
     { id: "theme-emerald", name: "Emerald Groove", shortName: "Emerald", color: "#10b981" },
@@ -93,7 +93,6 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
   };
 
   const handleClearMySongs = async () => {
-    if (!user) return;
     setConfirmClearOpen(false);
     setClearingSongs(true);
     try {
@@ -224,22 +223,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                 </div>
 
                 <div className="pt-2.5 border-t border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-                  {user && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setConfirmClearOpen(true)}
-                      disabled={clearingSongs || mySongsCount === 0}
-                      className="gap-1.5 text-xs border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer w-full sm:w-auto h-8"
-                    >
-                      {clearingSongs ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                      ) : (
-                        <Trash2 className="w-3.5 h-3.5 shrink-0" />
-                      )}
-                      <span>Clear My Songs ({mySongsCount})</span>
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmClearOpen(true)}
+                    disabled={clearingSongs || mySongsCount === 0}
+                    className="gap-1.5 text-xs border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer w-full sm:w-auto h-8"
+                  >
+                    {clearingSongs ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                    )}
+                    <span>Clear All Songs ({mySongsCount})</span>
+                  </Button>
 
                   <Button
                     variant="destructive"

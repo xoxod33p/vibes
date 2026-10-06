@@ -39,9 +39,6 @@ const FullscreenPlayerSheet = dynamic(
 const YtdlModal = dynamic(
   () => import("@/components/modals/YtdlModal").then((m) => m.YtdlModal)
 );
-const AuthModal = dynamic(
-  () => import("@/components/modals/AuthModal").then((m) => m.AuthModal)
-);
 const CreatePlaylistModal = dynamic(
   () => import("@/components/modals/CreatePlaylistModal").then((m) => m.CreatePlaylistModal)
 );
@@ -67,7 +64,6 @@ export default function HomePage() {
 
   // Modals state
   const [ytdlOpen, setYtdlOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
   const [createPlaylistOpen, setCreatePlaylistOpen] = useState(false);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<Song | null>(null);
   const [editSong, setEditSong] = useState<Song | null>(null);
@@ -75,12 +71,7 @@ export default function HomePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleOpenYtdl = () => {
-    if (!user) {
-      toast.info("Please sign in or register to add new music");
-      setAuthOpen(true);
-    } else {
-      setYtdlOpen(true);
-    }
+    setYtdlOpen(true);
   };
 
   const handleDeleteSong = async (song: Song) => {
@@ -114,7 +105,6 @@ export default function HomePage() {
         onSelectTab={setCurrentTab}
         onOpenYtdl={handleOpenYtdl}
         onOpenCreatePlaylist={() => setCreatePlaylistOpen(true)}
-        onOpenAuth={() => setAuthOpen(true)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
@@ -148,13 +138,11 @@ export default function HomePage() {
             <FavoritesView
               onEditSong={(song) => setEditSong(song)}
               onAddToPlaylist={(song) => setAddToPlaylistSong(song)}
-              onOpenAuth={() => setAuthOpen(true)}
             />
           )}
 
           {currentTab === "account" && (
             <AccountView
-              onOpenAuth={() => setAuthOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
             />
           )}
@@ -169,8 +157,8 @@ export default function HomePage() {
         <MobileBottomNav
           currentTab={currentTab}
           onSelectTab={setCurrentTab}
-          onOpenAuth={() => setAuthOpen(true)}
-          isLoggedIn={!!user}
+          onOpenAuth={() => {}}
+          isLoggedIn={true}
         />
 
         {/* Desktop Fixed Player Bar */}
@@ -185,7 +173,6 @@ export default function HomePage() {
 
       {/* Modals & Dialogs - dynamically mounted when triggered */}
       {ytdlOpen && <YtdlModal open={ytdlOpen} onOpenChange={setYtdlOpen} />}
-      {authOpen && <AuthModal open={authOpen} onOpenChange={setAuthOpen} />}
       {createPlaylistOpen && (
         <CreatePlaylistModal open={createPlaylistOpen} onOpenChange={setCreatePlaylistOpen} />
       )}

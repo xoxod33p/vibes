@@ -11,7 +11,6 @@ if (!process.env.PATH || !process.env.PATH.includes(binDir)) {
 }
 
 const { createServer } = require("http");
-const { parse } = require("url");
 const next = require("next");
 const { WebSocketServer } = require("ws");
 
@@ -28,8 +27,7 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     try {
-      const parsedUrl = parse(req.url, true);
-      await handle(req, res, parsedUrl);
+      await handle(req, res);
     } catch (err) {
       console.error("Error occurred handling", req.url, err);
       res.statusCode = 500;
@@ -77,7 +75,7 @@ app.prepare().then(() => {
   const nextUpgrade = typeof app.getUpgradeHandler === "function" ? app.getUpgradeHandler() : null;
 
   server.on("upgrade", (req, socket, head) => {
-    const { pathname } = parse(req.url || "");
+    const { pathname } = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 
     if (pathname === "/api/ws" || pathname === "/ws") {
       wss.handleUpgrade(req, socket, head, (ws) => {

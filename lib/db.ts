@@ -1,15 +1,15 @@
-import { getApps, initializeApp, cert, type Credential } from "firebase-admin/app";
-import { getFirestore, Firestore, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import path from "node:path";
 import fs from "node:fs";
-import { Song, Playlist } from "./types";
+import type { Song, Playlist } from "./types";
 
 const BASE_DIR = process.cwd();
 const UPLOAD_FOLDER = path.join(BASE_DIR, "uploads");
 const COVERS_FOLDER = path.join(BASE_DIR, "public", "covers");
 const TRANSCODE_DIR = path.join(BASE_DIR, "cache", "transcode");
+const DATA_DIR = path.join(BASE_DIR, "data");
+const DB_FILE = path.join(DATA_DIR, "music-db.json");
 
-for (const dir of [UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR]) {
+for (const dir of [UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR, DATA_DIR]) {
   if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) {
     try {
       fs.mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true });
@@ -17,190 +17,144 @@ for (const dir of [UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR]) {
   }
 }
 
-const isBuild = process.env.NEXT_PHASE === "phase-production-build";
-
-declare global {
-  var __vibes_firestore: Firestore | undefined;
+export interface PlaylistSongItem {
+  playlist_id: string;
+  song_id: string;
+  position: number;
 }
 
-function initFirestore(): Firestore {
-  if (globalThis.__vibes_firestore) {
-    return globalThis.__vibes_firestore;
-  }
-
-  if (getApps().length === 0) {
-    let credential: Credential | undefined;
-
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-      try {
-        const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-        credential = cert(parsed);
-      } catch (err) {
-        console.error("[firebase] Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:", err);
-      }
-    }
-
-    if (!credential) {
-      const candidates = [
-        process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
-        path.join(BASE_DIR, "serviceAccountKey.json"),
-        "/app/serviceAccountKey.json",
-        "/home/admin/vibes/serviceAccountKey.json",
-      ].filter(Boolean) as string[];
-
-      for (const filePath of candidates) {
-        try {
-          if (fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
-            const stat = fs.statSync(/*turbopackIgnore: true*/ filePath);
-            if (stat.isFile() && stat.size > 0) {
-              const fileContent = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
-              const parsed = JSON.parse(fileContent);
-              credential = cert(parsed);
-              break;
-            }
-          }
-        } catch (err) {
-          console.error("[firebase] Failed to read serviceAccountKey file:", err);
-        }
-      }
-    }
-
-    try {
-      if (credential) {
-        initializeApp({ credential, projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || undefined });
-      } else {
-        if (!isBuild) {
-          console.warn("[firebase] Warning: No Firebase Service Account JSON provided.");
-        }
-        initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "vibes-app" });
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!msg.includes("already exists")) {
-        console.warn("[firebase] initializeApp warning:", msg);
-      }
-    }
-  }
-
-  const firestoreInstance = getFirestore();
-  globalThis.__vibes_firestore = firestoreInstance;
-  return firestoreInstance;
-}
-
-export const db: Firestore = initFirestore();
-
-export interface UserDoc {
-  id: string;
-  username: string;
-  username_lower: string;
-  email: string;
-  email_lower: string;
-  password_hash: string;
+export interface FavoriteItem {
+  song_id: string;
   created_at: string;
 }
 
-export const usersDb = {
-  async findByUsernameOrEmail(identifier: string): Promise<UserDoc | null> {
-    if (!identifier) return null;
-    const lower = identifier.toLowerCase().trim();
-    const col = db.collection("users");
+export interface DbData {
+  songs: Song[];
+  playlists: Playlist[];
+  playlist_songs: PlaylistSongItem[];
+  favorites: FavoriteItem[];
+}
 
-    const uSnap = await col.where("username_lower", "==", lower).limit(1).get();
-    if (!uSnap.empty) {
-      return uSnap.docs[0].data() as UserDoc;
+declare global {
+  var __vibes_json_db: DbData | undefined;
+}
+
+function loadDb(): DbData {
+  if (globalThis.__vibes_json_db) {
+    return globalThis.__vibes_json_db;
+  }
+
+  let data: DbData = {
+    songs: [],
+    playlists: [],
+    playlist_songs: [],
+    favorites: [],
+  };
+
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const raw = fs.readFileSync(DB_FILE, "utf-8");
+      data = JSON.parse(raw);
+      if (!Array.isArray(data.songs)) data.songs = [];
+      if (!Array.isArray(data.playlists)) data.playlists = [];
+      if (!Array.isArray(data.playlist_songs)) data.playlist_songs = [];
+      if (!Array.isArray(data.favorites)) data.favorites = [];
+    } else {
+      // Auto-scan uploads folder if empty database to preserve existing tracks
+      data = scanExistingUploads(data);
+      saveDb(data);
     }
+  } catch (err) {
+    console.error("[json-db] Failed to read database file:", err);
+  }
 
-    const eSnap = await col.where("email_lower", "==", lower).limit(1).get();
-    if (!eSnap.empty) {
-      return eSnap.docs[0].data() as UserDoc;
-    }
+  globalThis.__vibes_json_db = data;
+  return data;
+}
 
-    return null;
-  },
+function scanExistingUploads(data: DbData): DbData {
+  try {
+    if (fs.existsSync(UPLOAD_FOLDER)) {
+      const files = fs.readdirSync(UPLOAD_FOLDER);
+      const audioFiles = files.filter(
+        (f) =>
+          !f.endsWith(".pending") &&
+          (f.endsWith(".mp3") || f.endsWith(".webm") || f.endsWith(".m4a") || f.endsWith(".opus") || f.endsWith(".wav") || f.endsWith(".flac"))
+      );
 
-  async findById(id: string): Promise<UserDoc | null> {
-    if (!id) return null;
-    const doc = await db.collection("users").doc(id).get();
-    return doc.exists ? (doc.data() as UserDoc) : null;
-  },
+      for (const filename of audioFiles) {
+        const id = filename.replace(/\.[^/.]+$/, "");
+        const coverCandidate = `${id}.jpg`;
+        const hasCover = fs.existsSync(path.join(COVERS_FOLDER, coverCandidate));
 
-  async findByUsername(username: string): Promise<UserDoc | null> {
-    if (!username) return null;
-    const snap = await db.collection("users").where("username_lower", "==", username.toLowerCase().trim()).limit(1).get();
-    return snap.empty ? null : (snap.docs[0].data() as UserDoc);
-  },
+        // Format clean title from filename
+        const cleanTitle = id
+          .replace(/^ytdl_/, "Track ")
+          .replace(/[_-]/g, " ")
+          .trim();
 
-  async findByEmail(email: string): Promise<UserDoc | null> {
-    if (!email) return null;
-    const snap = await db.collection("users").where("email_lower", "==", email.toLowerCase().trim()).limit(1).get();
-    return snap.empty ? null : (snap.docs[0].data() as UserDoc);
-  },
-
-  async create(user: { id: string; username: string; email: string; password_hash: string }): Promise<UserDoc> {
-    const docData: UserDoc = {
-      id: user.id,
-      username: user.username,
-      username_lower: user.username.toLowerCase(),
-      email: user.email || "",
-      email_lower: (user.email || "").toLowerCase(),
-      password_hash: user.password_hash,
-      created_at: new Date().toISOString(),
-    };
-    await db.collection("users").doc(user.id).set(docData);
-    return docData;
-  },
-
-  async countPlaylists(userId: string): Promise<number> {
-    if (!userId) return 0;
-    const snap = await db.collection("playlists").where("user_id", "==", userId).count().get();
-    return snap.data().count;
-  },
-
-  async countFavorites(userId: string): Promise<number> {
-    if (!userId) return 0;
-    const snap = await db.collection("favorites").where("user_id", "==", userId).count().get();
-    return snap.data().count;
-  },
-};
-
-export const songsDb = {
-  async list(q?: string): Promise<Song[]> {
-    const snap = await db.collection("songs").get();
-    let songs: Song[] = [];
-
-    snap.forEach((doc: QueryDocumentSnapshot) => {
-      const data = doc.data() as Song;
-      if (data.status !== "pending") {
-        songs.push(data);
+        data.songs.push({
+          id,
+          title: cleanTitle,
+          artist: "Unknown Artist",
+          album: "Local Library",
+          duration: 0,
+          filename,
+          cover: hasCover ? coverCandidate : null,
+          status: "ready",
+          uploaded_at: new Date().toISOString(),
+        });
       }
-    });
+    }
+  } catch (err) {
+    console.warn("[json-db] Could not scan uploads:", err);
+  }
+  return data;
+}
+
+function saveDb(data: DbData): void {
+  try {
+    const tempFile = `${DB_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), "utf-8");
+    fs.renameSync(tempFile, DB_FILE);
+  } catch (err) {
+    console.error("[json-db] Failed to save database file:", err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Songs Database
+// ---------------------------------------------------------------------------
+export const songsDb = {
+  list(q?: string): Song[] {
+    const db = loadDb();
+    let songs = db.songs.filter((s) => s.status !== "pending");
 
     if (q && q.trim()) {
-      const query = q.toLowerCase().trim();
+      const term = q.toLowerCase().trim();
       songs = songs.filter(
         (s) =>
-          s.title?.toLowerCase().includes(query) ||
-          s.artist?.toLowerCase().includes(query) ||
-          s.album?.toLowerCase().includes(query)
+          s.title?.toLowerCase().includes(term) ||
+          s.artist?.toLowerCase().includes(term) ||
+          s.album?.toLowerCase().includes(term)
       );
     }
 
-    songs.sort((a, b) => {
+    return [...songs].sort((a, b) => {
       const tA = new Date(a.uploaded_at || 0).getTime();
       const tB = new Date(b.uploaded_at || 0).getTime();
       return tB - tA;
     });
-
-    return songs;
   },
 
-  async findById(id: string): Promise<Song | null> {
+  findById(id: string): Song | null {
     if (!id) return null;
-    const doc = await db.collection("songs").doc(id).get();
-    return doc.exists ? (doc.data() as Song) : null;
+    const db = loadDb();
+    return db.songs.find((s) => s.id === id) || null;
   },
 
-  async create(song: Partial<Song> & { id: string; title: string; filename: string }): Promise<Song> {
+  create(song: Partial<Song> & { id: string; title: string; filename: string }): Song {
+    const db = loadDb();
     const record: Song = {
       id: song.id,
       title: song.title,
@@ -209,222 +163,193 @@ export const songsDb = {
       duration: song.duration ?? 0,
       filename: song.filename,
       cover: song.cover ?? null,
-      user_id: song.user_id ?? null,
       status: song.status || "ready",
       uploaded_at: song.uploaded_at || new Date().toISOString(),
     };
-    await db.collection("songs").doc(song.id).set(record);
+
+    const idx = db.songs.findIndex((s) => s.id === song.id);
+    if (idx >= 0) {
+      db.songs[idx] = record;
+    } else {
+      db.songs.push(record);
+    }
+
+    saveDb(db);
     return record;
   },
 
-  async update(id: string, updates: Partial<Song>): Promise<void> {
+  update(id: string, updates: Partial<Song>): void {
     if (!id) return;
-    await db.collection("songs").doc(id).set(updates, { merge: true });
-  },
-
-  async delete(id: string): Promise<void> {
-    if (!id) return;
-    const batch = db.batch();
-
-    batch.delete(db.collection("songs").doc(id));
-
-    const psSnap = await db.collection("playlist_songs").where("song_id", "==", id).get();
-    psSnap.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
-
-    const favSnap = await db.collection("favorites").where("song_id", "==", id).get();
-    favSnap.forEach((doc: QueryDocumentSnapshot) => batch.delete(doc.ref));
-
-    await batch.commit();
-  },
-
-  async deleteByUserId(userId: string): Promise<Song[]> {
-    if (!userId) return [];
-    const snap = await db.collection("songs").where("user_id", "==", userId).get();
-    const songs: Song[] = [];
-
-    const batch = db.batch();
-    for (const doc of snap.docs) {
-      const song = doc.data() as Song;
-      songs.push(song);
-      batch.delete(doc.ref);
-
-      const psSnap = await db.collection("playlist_songs").where("song_id", "==", song.id).get();
-      psSnap.forEach((pDoc: QueryDocumentSnapshot) => batch.delete(pDoc.ref));
-
-      const favSnap = await db.collection("favorites").where("song_id", "==", song.id).get();
-      favSnap.forEach((fDoc: QueryDocumentSnapshot) => batch.delete(fDoc.ref));
+    const db = loadDb();
+    const idx = db.songs.findIndex((s) => s.id === id);
+    if (idx >= 0) {
+      db.songs[idx] = { ...db.songs[idx], ...updates };
+      saveDb(db);
     }
-
-    await batch.commit();
-    return songs;
   },
 
-  async getStatus(id: string): Promise<Song | null> {
-    if (!id) return null;
-    const doc = await db.collection("songs").doc(id).get();
-    return doc.exists ? (doc.data() as Song) : null;
+  delete(id: string): void {
+    if (!id) return;
+    const db = loadDb();
+    db.songs = db.songs.filter((s) => s.id !== id);
+    db.playlist_songs = db.playlist_songs.filter((ps) => ps.song_id !== id);
+    db.favorites = db.favorites.filter((f) => f.song_id !== id);
+    saveDb(db);
+  },
+
+  deleteAll(): Song[] {
+    const db = loadDb();
+    const removed = [...db.songs];
+    db.songs = [];
+    db.playlist_songs = [];
+    db.favorites = [];
+    saveDb(db);
+    return removed;
+  },
+
+  getStatus(id: string): Song | null {
+    return songsDb.findById(id);
   },
 };
 
+// ---------------------------------------------------------------------------
+// Playlists Database
+// ---------------------------------------------------------------------------
 export const playlistsDb = {
-  async list(userId?: string | null): Promise<(Playlist & { song_count: number })[]> {
-    const snap = await db.collection("playlists").get();
-    const playlists: (Playlist & { song_count: number })[] = [];
+  list(): (Playlist & { song_count: number })[] {
+    const db = loadDb();
+    const list = db.playlists.map((p) => {
+      const count = db.playlist_songs.filter((ps) => ps.playlist_id === p.id).length;
+      return {
+        ...p,
+        song_count: count,
+      };
+    });
 
-    for (const doc of snap.docs) {
-      const data = doc.data() as Playlist;
-      if (!userId || data.user_id === userId || !data.user_id) {
-        const countSnap = await db
-          .collection("playlist_songs")
-          .where("playlist_id", "==", data.id)
-          .count()
-          .get();
-
-        playlists.push({
-          ...data,
-          song_count: countSnap.data().count,
-        });
-      }
-    }
-
-    playlists.sort((a, b) => {
+    return list.sort((a, b) => {
       const tA = new Date(a.created_at || 0).getTime();
       const tB = new Date(b.created_at || 0).getTime();
       return tB - tA;
     });
-
-    return playlists;
   },
 
-  async findById(id: string): Promise<Playlist | null> {
+  findById(id: string): Playlist | null {
     if (!id) return null;
-    const doc = await db.collection("playlists").doc(id).get();
-    return doc.exists ? (doc.data() as Playlist) : null;
+    const db = loadDb();
+    return db.playlists.find((p) => p.id === id) || null;
   },
 
-  async create(data: { id: string; name: string; user_id?: string | null }): Promise<Playlist & { song_count: number }> {
+  create(data: { id: string; name: string }): Playlist & { song_count: number } {
+    const db = loadDb();
     const record: Playlist = {
       id: data.id,
       name: data.name,
-      user_id: data.user_id ?? null,
       created_at: new Date().toISOString(),
     };
-    await db.collection("playlists").doc(data.id).set(record);
+    db.playlists.push(record);
+    saveDb(db);
     return { ...record, song_count: 0 };
   },
 
-  async delete(id: string, userId?: string | null): Promise<boolean> {
+  delete(id: string): boolean {
     if (!id) return false;
-    const docRef = db.collection("playlists").doc(id);
-    const doc = await docRef.get();
-    if (!doc.exists) return false;
-
-    const data = doc.data() as Playlist;
-    if (userId && data.user_id && data.user_id !== userId) {
-      return false;
-    }
-
-    const batch = db.batch();
-    batch.delete(docRef);
-
-    const psSnap = await db.collection("playlist_songs").where("playlist_id", "==", id).get();
-    psSnap.forEach((pDoc: QueryDocumentSnapshot) => batch.delete(pDoc.ref));
-
-    await batch.commit();
-    return true;
+    const db = loadDb();
+    const initialLen = db.playlists.length;
+    db.playlists = db.playlists.filter((p) => p.id !== id);
+    db.playlist_songs = db.playlist_songs.filter((ps) => ps.playlist_id !== id);
+    saveDb(db);
+    return db.playlists.length < initialLen;
   },
 
-  async getSongs(playlistId: string): Promise<Song[]> {
+  getSongs(playlistId: string): Song[] {
     if (!playlistId) return [];
-    const psSnap = await db
-      .collection("playlist_songs")
-      .where("playlist_id", "==", playlistId)
-      .get();
+    const db = loadDb();
+    const playlistItems = db.playlist_songs
+      .filter((ps) => ps.playlist_id === playlistId)
+      .sort((a, b) => a.position - b.position);
 
-    if (psSnap.empty) return [];
-
-    const items = psSnap.docs.map((d: QueryDocumentSnapshot) => d.data() as { song_id: string; position: number });
-    items.sort((a: { position?: number }, b: { position?: number }) => (a.position ?? 0) - (b.position ?? 0));
-
-    const songIds = items.map((i: { song_id: string }) => i.song_id);
     const songs: Song[] = [];
-
-    for (const songId of songIds) {
-      const sDoc = await db.collection("songs").doc(songId).get();
-      if (sDoc.exists) {
-        songs.push(sDoc.data() as Song);
-      }
+    for (const item of playlistItems) {
+      const song = db.songs.find((s) => s.id === item.song_id);
+      if (song) songs.push(song);
     }
-
     return songs;
   },
 
-  async addSong(playlistId: string, songId: string): Promise<void> {
+  addSong(playlistId: string, songId: string): void {
     if (!playlistId || !songId) return;
-    const countSnap = await db
-      .collection("playlist_songs")
-      .where("playlist_id", "==", playlistId)
-      .count()
-      .get();
-
-    const position = countSnap.data().count;
-    const docId = `${playlistId}_${songId}`;
-    await db.collection("playlist_songs").doc(docId).set({
-      playlist_id: playlistId,
-      song_id: songId,
-      position,
-    });
+    const db = loadDb();
+    const exists = db.playlist_songs.some(
+      (ps) => ps.playlist_id === playlistId && ps.song_id === songId
+    );
+    if (!exists) {
+      const currentItems = db.playlist_songs.filter((ps) => ps.playlist_id === playlistId);
+      const position = currentItems.length;
+      db.playlist_songs.push({ playlist_id: playlistId, song_id: songId, position });
+      saveDb(db);
+    }
   },
 
-  async removeSong(playlistId: string, songId: string): Promise<void> {
+  removeSong(playlistId: string, songId: string): void {
     if (!playlistId || !songId) return;
-    const docId = `${playlistId}_${songId}`;
-    await db.collection("playlist_songs").doc(docId).delete();
+    const db = loadDb();
+    db.playlist_songs = db.playlist_songs.filter(
+      (ps) => !(ps.playlist_id === playlistId && ps.song_id === songId)
+    );
+    saveDb(db);
+  },
+
+  countAll(): number {
+    return loadDb().playlists.length;
   },
 };
 
+// ---------------------------------------------------------------------------
+// Favorites Database (Shared / Local)
+// ---------------------------------------------------------------------------
 export const favoritesDb = {
-  async list(userId: string): Promise<Song[]> {
-    if (!userId) return [];
-    const snap = await db.collection("favorites").where("user_id", "==", userId).get();
-    if (snap.empty) return [];
-
-    const items = snap.docs.map((d: QueryDocumentSnapshot) => d.data() as { song_id: string; created_at: string });
-    items.sort((a: { created_at?: string }, b: { created_at?: string }) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
+  list(): Song[] {
+    const db = loadDb();
+    const favsSorted = [...db.favorites].sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
     const songs: Song[] = [];
-    for (const item of items) {
-      const sDoc = await db.collection("songs").doc(item.song_id).get();
-      if (sDoc.exists) {
-        songs.push(sDoc.data() as Song);
-      }
+    for (const item of favsSorted) {
+      const song = db.songs.find((s) => s.id === item.song_id);
+      if (song) songs.push(song);
     }
     return songs;
   },
 
-  async listIds(userId: string): Promise<string[]> {
-    if (!userId) return [];
-    const snap = await db.collection("favorites").where("user_id", "==", userId).get();
-    return snap.docs.map((d: QueryDocumentSnapshot) => (d.data() as { song_id: string }).song_id);
+  listIds(): string[] {
+    return loadDb().favorites.map((f) => f.song_id);
   },
 
-  async add(userId: string, songId: string): Promise<void> {
-    if (!userId || !songId) return;
-    const docId = `${userId}_${songId}`;
-    await db.collection("favorites").doc(docId).set({
-      user_id: userId,
-      song_id: songId,
-      created_at: new Date().toISOString(),
-    });
+  add(songId: string): void {
+    if (!songId) return;
+    const db = loadDb();
+    const exists = db.favorites.some((f) => f.song_id === songId);
+    if (!exists) {
+      db.favorites.push({ song_id: songId, created_at: new Date().toISOString() });
+      saveDb(db);
+    }
   },
 
-  async remove(userId: string, songId: string): Promise<void> {
-    if (!userId || !songId) return;
-    const docId = `${userId}_${songId}`;
-    await db.collection("favorites").doc(docId).delete();
+  remove(songId: string): void {
+    if (!songId) return;
+    const db = loadDb();
+    db.favorites = db.favorites.filter((f) => f.song_id !== songId);
+    saveDb(db);
+  },
+
+  countAll(): number {
+    return loadDb().favorites.length;
   },
 };
 
+// ---------------------------------------------------------------------------
+// Path helpers (unchanged)
+// ---------------------------------------------------------------------------
 export function getCookiesPath(): string | null {
   const envPath = process.env.COOKIES_PATH;
   if (envPath) {
@@ -444,7 +369,6 @@ export function getCookiesPath(): string | null {
     }
   } catch {}
 
-
   const linuxCookies = "/home/admin/vibes/cookies.txt";
   try {
     if (fs.existsSync(linuxCookies)) {
@@ -457,12 +381,8 @@ export function getCookiesPath(): string | null {
 }
 
 export function getYtdlpPath(): string {
-  // 1. Honour explicit env override
   if (process.env.YTDLP_PATH) return process.env.YTDLP_PATH;
 
-  // 2. Probe candidate locations and return the first existing executable.
-  //    This is necessary on Linux when running under PM2/systemd where the
-  //    shell PATH is stripped and 'yt-dlp' is not resolvable by name alone.
   const candidates = [
     path.join(BASE_DIR, "bin", process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp"),
     path.join(BASE_DIR, "bin", "yt-dlp"),
@@ -475,11 +395,10 @@ export function getYtdlpPath(): string {
 
   for (const candidate of candidates) {
     try {
-      if (fs.existsSync(candidate)) return candidate;
+      if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) return candidate;
     } catch {}
   }
 
-  // 3. Fallback: hope it's on PATH (works locally / Windows)
   return "yt-dlp";
 }
 
@@ -498,7 +417,7 @@ export function getFfmpegPath(): string | null {
 
   for (const candidate of candidates) {
     try {
-      if (fs.existsSync(candidate)) return candidate;
+      if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) return candidate;
     } catch {}
   }
 
@@ -520,4 +439,3 @@ export function getExtendedPath(): string {
 }
 
 export { UPLOAD_FOLDER, COVERS_FOLDER, TRANSCODE_DIR, BASE_DIR };
-

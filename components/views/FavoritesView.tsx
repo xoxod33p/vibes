@@ -10,19 +10,15 @@ import { Button } from "@/components/ui/button";
 interface FavoritesViewProps {
   onEditSong: (song: Song) => void;
   onAddToPlaylist: (song: Song) => void;
-  onOpenAuth: () => void;
+  onOpenAuth?: () => void;
 }
 
-export function FavoritesView({ onEditSong, onAddToPlaylist, onOpenAuth }: FavoritesViewProps) {
-  const { user, playSong, favorites } = useAudio();
+export function FavoritesView({ onEditSong, onAddToPlaylist }: FavoritesViewProps) {
+  const { playSong, favorites } = useAudio();
   const [favoriteSongs, setFavoriteSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchFavorites = async () => {
-    if (!user) {
-      setFavoriteSongs([]);
-      return;
-    }
     try {
       setLoading(true);
       const res = await fetch("/api/favorites");
@@ -39,7 +35,7 @@ export function FavoritesView({ onEditSong, onAddToPlaylist, onOpenAuth }: Favor
 
   useEffect(() => {
     fetchFavorites();
-  }, [user, favorites]);
+  }, [favorites]);
 
   const handlePlayAll = () => {
     if (favoriteSongs.length > 0) {
@@ -53,23 +49,6 @@ export function FavoritesView({ onEditSong, onAddToPlaylist, onOpenAuth }: Favor
       playSong(shuffled[0], shuffled);
     }
   };
-
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center px-4 glass-panel rounded-3xl border border-white/5 my-4 max-w-xl mx-auto">
-        <div className="w-16 h-16 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
-          <Heart className="w-8 h-8 text-red-400 fill-current" />
-        </div>
-        <h3 className="text-xl font-bold text-white mb-2">Account Required</h3>
-        <p className="text-sm text-neutral-400 max-w-sm mb-6">
-          Sign in or create an account to save your favorite songs and sync playlists across devices.
-        </p>
-        <Button variant="default" size="default" onClick={onOpenAuth} className="px-6">
-          Sign In / Register
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col h-full min-h-0 w-full max-w-7xl mx-auto gap-4">

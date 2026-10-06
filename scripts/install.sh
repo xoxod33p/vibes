@@ -24,6 +24,29 @@ case "$ARCH" in
 esac
 
 echo "[1/5] Architecture: $ARCH ($ARCH_LABEL)"
+
+# Low RAM VPS check & auto-swap
+if [ -f /proc/meminfo ]; then
+    TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    SWAP_TOTAL_KB=$(grep SwapTotal /proc/meminfo | awk '{print $2}')
+    if [ "$TOTAL_RAM_KB" -lt 2500000 ] && [ "$SWAP_TOTAL_KB" -lt 500000 ]; then
+        echo "  [!] Low RAM detected ($((TOTAL_RAM_KB / 1024))MB) with insufficient swap."
+        if [ "$EUID" -eq 0 ] && [ ! -f /swapfile ]; then
+            echo "  [+] Creating 2GB swapfile to prevent build OOM crashes..."
+            fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
+            chmod 600 /swapfile
+            mkswap /swapfile
+            swapon /swapfile
+            if ! grep -q "/swapfile" /etc/fstab 2>/dev/null; then
+                echo "/swapfile none swap sw 0 0" >> /etc/fstab
+            fi
+            echo "  [+] 2GB swap activated."
+        else
+            echo "  [!] Tip: Add a swapfile if builds crash due to low RAM:"
+            echo "      sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile"
+        fi
+    fi
+fi
 echo ""
 
 # ── Node.js ───────────────────────────────────────────────────────────────────
@@ -207,16 +230,8 @@ COOKIE_SECURE=false
 $YTDLP_ENV_LINE
 $FFMPEG_ENV_LINE
 COOKIES_PATH=$COOKIES_FINAL
-FIREBASE_SERVICE_ACCOUNT_KEY=
-FIREBASE_SERVICE_ACCOUNT_PATH=./serviceAccountKey.json
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
+NODE_OPTIONS="--max-old-space-size=1536"
+NEXT_TELEMETRY_DISABLED=1
 EOF
     echo "[+] Created .env with auto-detected paths"
 else

@@ -1,6 +1,6 @@
 # Vibes 🎵
 
-A modern, self-hosted web music player and media downloader built with **Next.js 16**, **React 19**, **TypeScript**, and **Firebase Firestore** / WebSocket real-time sync.
+A modern, self-hosted web music player and media downloader built with **Next.js 16**, **React 19**, **TypeScript**, **SQLite** (`better-sqlite3`), and WebSocket real-time sync.
 
 ---
 
@@ -58,7 +58,7 @@ npm run dev
    ```bash
    cp .env.example .env
    ```
-   *Edit `.env` and fill in your secrets or Firebase credentials (if using cloud persistence).*
+   *Edit `.env` and fill in your secrets.*
 
 4. **Start development server:**
    ```bash
@@ -81,13 +81,8 @@ npm run dev
 | `COOKIE_SECURE` | `false` | Set to `true` when behind HTTPS / SSL |
 | `YTDLP_PATH` | `yt-dlp` | Custom binary path for yt-dlp |
 | `COOKIES_PATH` | `./cookies.txt` | Path to Netscape-format YouTube cookies |
-| `FIREBASE_SERVICE_ACCOUNT_PATH` | `./serviceAccountKey.json` | Path to Firebase credentials JSON |
-| `FIREBASE_SERVICE_ACCOUNT_KEY` | - | Raw JSON string for Firebase credentials |
-| `GOOGLE_CLIENT_ID` | - | Google OAuth Client ID |
-| `GOOGLE_CLIENT_SECRET` | - | Google OAuth Client Secret |
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | - | Firebase Client API Key (for client-side Google auth) |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | - | Firebase Auth Domain |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | - | Firebase Project ID |
+| `NODE_OPTIONS` | `"--max-old-space-size=1536"` | Restricts Node memory to prevent VPS OOM crash |
+| `NEXT_TELEMETRY_DISABLED` | `1` | Disables telemetry to save build memory & network overhead |
 
 ---
 
